@@ -3,6 +3,9 @@
     "rootNamespace": "Waterpulse.Tests.EditMode",
     "references": [
         "Waterpulse.Logic",
+        "Waterpulse.Config",
+        "Waterpulse.Gameplay",
+        "Waterpulse.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

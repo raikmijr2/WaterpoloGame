@@ -1,0 +1,289 @@
+using System.IO;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
+using Waterpulse.Brains;
+using Waterpulse.Config;
+using Waterpulse.Gameplay;
+
+namespace Waterpulse.EditorTools
+{
+    // Genera la escena del partido. Crea la escena desde cero cada vez (no duplica objetos)
+    // y solo crea GameConfig.asset si no existe (no pisa los ajustes)
+    public static class MatchSceneBuilder
+    {
+        public const string RootDir = "Assets/_Waterpulse";
+        public const string ScenePath = RootDir + "/Scenes/Match.unity";
+        public const string ConfigPath = RootDir + "/Config/GameConfig.asset";
+        const string MaterialDir = RootDir + "/Art/Materials";
+
+        // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
+        const float WallThickness = 0.5f;
+        const float WallTopAboveWater = 0.3f;
+        const float WallDepth = 1.5f;
+        const float EndMargin = 1.5f;      // agua detrás de cada portería
+        const float SideMargin = 0.5f;     // agua fuera de las bandas
+        const float PoolDepth = 2f;
+        const float LineWidth = 0.08f;
+        const float Line2m = 2f;
+        const float Line5m = 5f;
+        const float PostSize = 0.12f;
+        const float NetDepth = 0.8f;
+        const float PlayerHeight = 1.2f;
+        const float PlayerStartX = -3f;
+
+        [MenuItem("Waterpulse/Build Match Scene", priority = 0)]
+        static void BuildFromMenu()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            Build();
+            Debug.Log($"[Waterpulse] Escena generada en {ScenePath}. Pulsa Play y muévete con WASD.");
+        }
+
+        public static void Build()
+        {
+            EnsureFolder(RootDir + "/Scenes");
+            EnsureFolder(RootDir + "/Config");
+            EnsureFolder(MaterialDir);
+
+            // La escena nueva se crea ANTES de cargar assets: NewScene descarga los assets no usados
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var config = LoadOrCreateConfig();
+            var mats = new Materials();
+
+            BuildLight();
+            var pool = BuildPool(config, mats);
+            BuildGoal(config, mats, pool.transform, -1f);
+            BuildGoal(config, mats, pool.transform, 1f);
+            BuildPlayer(config, mats);
+            BuildCamera(config, pool);
+
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            AssetDatabase.SaveAssets();
+        }
+
+        static GameConfigSO LoadOrCreateConfig()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(ConfigPath);
+            if (config != null) return config;
+            config = ScriptableObject.CreateInstance<GameConfigSO>();
+            AssetDatabase.CreateAsset(config, ConfigPath);
+            AssetDatabase.SaveAssets();
+            return AssetDatabase.LoadAssetAtPath<GameConfigSO>(ConfigPath);
+        }
+
+        // ---------- Escena ----------
+
+        static void BuildLight()
+        {
+            var go = new GameObject("Directional Light");
+            var light = go.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.1f;
+            light.shadows = LightShadows.Soft;
+            go.transform.rotation = Quaternion.Euler(55f, -30f, 0f);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.55f, 0.6f, 0.65f);
+        }
+
+        static PoolBounds BuildPool(GameConfigSO c, Materials mats)
+        {
+            var root = new GameObject("Pool");
+            var bounds = root.AddComponent<PoolBounds>();
+            SetRef(bounds, "config", c);
+            var t = root.transform;
+
+            float waterL = c.poolLength + EndMargin * 2f;
+            float waterW = c.poolWidth + SideMargin * 2f;
+            Prim(PrimitiveType.Cube, "Water", t, new Vector3(0f, -0.025f, 0f), new Vector3(waterL, 0.05f, waterW), mats.Water, false, false);
+            Prim(PrimitiveType.Cube, "Floor", t, new Vector3(0f, -PoolDepth, 0f), new Vector3(waterL, 0.2f, waterW), mats.Floor, false);
+
+            // Paredes con colisión: los límites físicos coinciden con las bandas y las líneas de gol.
+            // En cada línea de gol la pared se parte en dos tramos y deja libre la boca de la portería
+            float wallH = WallDepth + WallTopAboveWater;
+            float wallY = WallTopAboveWater - wallH * 0.5f;
+            var walls = new GameObject("Walls").transform;
+            walls.SetParent(t, false);
+            float hx = c.poolLength * 0.5f, hz = c.poolWidth * 0.5f, w = WallThickness;
+            Prim(PrimitiveType.Cube, "Wall_North", walls, new Vector3(0f, wallY, hz + w * 0.5f), new Vector3(c.poolLength + w * 2f, wallH, w), mats.Wall, true);
+            Prim(PrimitiveType.Cube, "Wall_South", walls, new Vector3(0f, wallY, -hz - w * 0.5f), new Vector3(c.poolLength + w * 2f, wallH, w), mats.Wall, true);
+
+            float mouth = c.goalWidth * 0.5f + PostSize;
+            float segment = hz - mouth;
+            foreach (float s in new[] { -1f, 1f })
+            {
+                string side = s > 0f ? "East" : "West";
+                float x = (hx + w * 0.5f) * s;
+                Prim(PrimitiveType.Cube, $"Wall_{side}_North", walls, new Vector3(x, wallY, mouth + segment * 0.5f), new Vector3(w, wallH, segment), mats.Wall, true);
+                Prim(PrimitiveType.Cube, $"Wall_{side}_South", walls, new Vector3(x, wallY, -mouth - segment * 0.5f), new Vector3(w, wallH, segment), mats.Wall, true);
+            }
+
+            // Líneas: gol (blanca), 2 m (roja), 5 m (amarilla) y medio campo (blanca)
+            var lines = new GameObject("Lines").transform;
+            lines.SetParent(t, false);
+            CrossLine(lines, "Center", 0f, c.poolWidth, mats.LineWhite);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                string side = s > 0f ? "East" : "West";
+                CrossLine(lines, "GoalLine_" + side, hx * s, c.poolWidth, mats.LineWhite);
+                CrossLine(lines, "Line2m_" + side, (hx - Line2m) * s, c.poolWidth, mats.LineRed);
+                CrossLine(lines, "Line5m_" + side, (hx - Line5m) * s, c.poolWidth, mats.LineYellow);
+            }
+            return bounds;
+        }
+
+        static void CrossLine(Transform parent, string name, float x, float width, Material mat)
+        {
+            Prim(PrimitiveType.Cube, name, parent, new Vector3(x, 0.01f, 0f), new Vector3(LineWidth, 0.01f, width), mat, false, false);
+        }
+
+        // Portería: postes y red con colisión (la red cierra la boca por detrás). La detección de gol llega en la Fase 2
+        static void BuildGoal(GameConfigSO c, Materials mats, Transform pool, float side)
+        {
+            var root = new GameObject(side > 0f ? "Goal_East" : "Goal_West").transform;
+            root.SetParent(pool, false);
+            root.localPosition = new Vector3(c.poolLength * 0.5f * side, 0f, 0f);
+
+            float hw = c.goalWidth * 0.5f, h = c.goalHeight;
+            float postH = h + WallDepth;
+            float postY = h - postH * 0.5f;
+            float netZ = hw + PostSize * 0.5f;
+            Prim(PrimitiveType.Cube, "Post_Left", root, new Vector3(0f, postY, -netZ), new Vector3(PostSize, postH, PostSize), mats.GoalFrame, true);
+            Prim(PrimitiveType.Cube, "Post_Right", root, new Vector3(0f, postY, netZ), new Vector3(PostSize, postH, PostSize), mats.GoalFrame, true);
+            Prim(PrimitiveType.Cube, "Crossbar", root, new Vector3(0f, h + PostSize * 0.5f, 0f), new Vector3(PostSize, PostSize, c.goalWidth + PostSize * 2f), mats.GoalFrame, false);
+            Prim(PrimitiveType.Cube, "Net_Back", root, new Vector3(NetDepth * side, postY, 0f), new Vector3(PostSize, postH, c.goalWidth + PostSize * 2f), mats.Net, true, false);
+            Prim(PrimitiveType.Cube, "Net_Left", root, new Vector3(NetDepth * 0.5f * side, postY, -netZ), new Vector3(NetDepth, postH, PostSize), mats.Net, true, false);
+            Prim(PrimitiveType.Cube, "Net_Right", root, new Vector3(NetDepth * 0.5f * side, postY, netZ), new Vector3(NetDepth, postH, PostSize), mats.Net, true, false);
+            Prim(PrimitiveType.Cube, "Net_Top", root, new Vector3(NetDepth * 0.5f * side, h, 0f), new Vector3(NetDepth, 0.02f, c.goalWidth), mats.Net, false, false);
+        }
+
+        static void BuildPlayer(GameConfigSO c, Materials mats)
+        {
+            var go = new GameObject("Player_Human");
+            go.transform.position = new Vector3(PlayerStartX, 0f, 0f);
+            go.transform.rotation = Quaternion.LookRotation(Vector3.right);
+
+            var capsule = go.AddComponent<CapsuleCollider>();
+            capsule.radius = c.playerRadius;
+            capsule.height = PlayerHeight;
+            var body = go.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            go.AddComponent<HumanBrain>();
+            var controller = go.AddComponent<PlayerController>();
+            SetRef(controller, "config", c);
+
+            // Visual: cuerpo medio sumergido, gorro y "nariz" para ver hacia dónde mira
+            var visual = new GameObject("Visual").transform;
+            visual.SetParent(go.transform, false);
+            float d = c.playerRadius * 2f;
+            Prim(PrimitiveType.Capsule, "Body", visual, Vector3.zero, new Vector3(d, PlayerHeight * 0.5f, d), mats.Body, false);
+            Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, mats.Cap, false);
+            Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
+        }
+
+        static void BuildCamera(GameConfigSO c, PoolBounds pool)
+        {
+            var go = new GameObject("Main Camera");
+            go.tag = "MainCamera";
+            var cam = go.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.12f, 0.16f, 0.2f);
+            cam.fieldOfView = c.cameraFieldOfView;
+            go.AddComponent<AudioListener>();
+            var matchCamera = go.AddComponent<MatchCamera>();
+            SetRef(matchCamera, "config", c);
+            SetRef(matchCamera, "pool", pool);
+            matchCamera.Fit();
+        }
+
+        // ---------- Utilidades ----------
+
+        static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool keepCollider, bool castShadows = true)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = scale;
+            if (!keepCollider) Object.DestroyImmediate(go.GetComponent<Collider>());
+            var r = go.GetComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            if (!castShadows) r.shadowCastingMode = ShadowCastingMode.Off;
+            return go;
+        }
+
+        static void SetRef(Object target, string field, Object value)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null)
+            {
+                Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}");
+                return;
+            }
+            prop.objectReferenceValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            if (prop.objectReferenceValue != value)
+                Debug.LogError($"[Waterpulse] No se pudo asignar '{field}' en {target.GetType().Name}");
+        }
+
+        static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+            string parent = Path.GetDirectoryName(path)?.Replace('\\', '/');
+            if (!AssetDatabase.IsValidFolder(parent)) EnsureFolder(parent);
+            AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
+        }
+
+        // Materiales URP generados (se actualizan en cada ejecución, no se duplican)
+        class Materials
+        {
+            public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Cap, Nose;
+
+            public Materials()
+            {
+                Water = Lit("Water", new Color(0.1f, 0.5f, 0.85f, 0.6f), true);
+                Floor = Lit("PoolFloor", new Color(0.55f, 0.82f, 0.92f));
+                Wall = Lit("PoolWall", new Color(0.88f, 0.9f, 0.92f));
+                LineWhite = Lit("LineWhite", Color.white);
+                LineRed = Lit("LineRed", new Color(0.9f, 0.15f, 0.15f));
+                LineYellow = Lit("LineYellow", new Color(1f, 0.85f, 0.1f));
+                GoalFrame = Lit("GoalFrame", Color.white);
+                Net = Lit("GoalNet", new Color(1f, 1f, 1f, 0.3f), true);
+                Body = Lit("PlayerBody", new Color(0.95f, 0.8f, 0.65f));
+                Cap = Lit("PlayerCap", new Color(0.1f, 0.3f, 0.95f));
+                Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
+            }
+
+            static Material Lit(string name, Color color, bool transparent = false)
+            {
+                string path = $"{MaterialDir}/{name}.mat";
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (m == null)
+                {
+                    m = new Material(shader);
+                    AssetDatabase.CreateAsset(m, path);
+                }
+                m.SetColor("_BaseColor", color);
+                if (transparent)
+                {
+                    m.SetFloat("_Surface", 1f);
+                    m.SetFloat("_Blend", 0f);
+                    m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                    m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                    m.SetFloat("_ZWrite", 0f);
+                    m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    m.SetOverrideTag("RenderType", "Transparent");
+                    m.renderQueue = (int)RenderQueue.Transparent;
+                    m.SetShaderPassEnabled("ShadowCaster", false);
+                }
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+        }
+    }
+}

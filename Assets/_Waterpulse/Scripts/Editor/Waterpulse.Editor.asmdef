@@ -1,6 +1,6 @@
 {
     "name": "Waterpulse.Editor",
-    "rootNamespace": "Waterpulse.Editor",
+    "rootNamespace": "Waterpulse.EditorTools",
     "references": ["Waterpulse.Core", "Waterpulse.Config", "Waterpulse.Logic", "Waterpulse.Gameplay", "Waterpulse.AI", "Waterpulse.Brains", "Waterpulse.Abilities", "Waterpulse.UI", "Waterpulse.Audio", "Unity.InputSystem", "UnityEngine.UI"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],

@@ -32,7 +32,8 @@ Juego de waterpolo arcade en **Unity 6** con build **Web** (PC, móvil y tablet)
 - **Física:** `Rigidbody` (3D) con `useGravity = false`, posición Y y rotaciones X/Z congeladas, y `linearDamping` configurable para la sensación de agua. `PlayerIntent.Move` (Vector2) se aplica en el plano XZ. No se simula el agua.
 - **Assembly Definitions:** una por carpeta de scripts. `Logic` no depende de nada del juego; `Gameplay` depende de `Logic`, `Config` y `Core`.
   - `IPlayerBrain` y `PlayerIntent` viven en `Core` (no en `Brains`) para evitar la dependencia circular Gameplay ↔ Brains. `Brains` contiene las implementaciones (`HumanBrain`, `AIBrain`).
-  - Dependencias: `Logic` → nada · `Config` → nada · `Core` → Config · `Gameplay` → Logic, Config, Core · `AI` → Core, Config, Gameplay · `Brains` → Core, Config, Gameplay, AI, InputSystem · `Abilities` → Core, Config, Logic, Gameplay · `UI` → Core, Config, Logic, Gameplay, InputSystem, uGUI · `Audio` → Core, Config · `Editor` → todas (solo editor) · `Tests.EditMode` → Logic.
+  - Dependencias: `Logic` → nada · `Config` → nada · `Core` → Config · `Gameplay` → Logic, Config, Core · `AI` → Core, Config, Gameplay · `Brains` → Core, Config, Gameplay, AI, InputSystem · `Abilities` → Core, Config, Logic, Gameplay · `UI` → Core, Config, Logic, Gameplay, InputSystem, uGUI · `Audio` → Core, Config · `Editor` → todas (solo editor) · `Tests.EditMode` → Logic, Config, Gameplay, Editor (para testear los generadores).
+  - El namespace de `Scripts/Editor/` es `Waterpulse.EditorTools` (un namespace `...Editor` taparía la clase `UnityEditor.Editor`).
 - **Rendimiento Web:** nada de reflexión pesada, threads ni APIs no soportadas en WebGL.
 
 ### Estructura de carpetas
@@ -154,10 +155,11 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 1 — EN CURSO**
-- Fases completadas: Fase 0
+- Fase actual: **Fase 2 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1
 - Notas:
   - Fase 1 (aprobado): piscina 20×12 m, porterías de 3 m; velocidad 4 m/s, aceleración 8 m/s², `linearDamping` 2; cámara inclinada ~60° que encuadra todo el campo; HumanBrain lee WASD y también el stick izquierdo del mando.
+  - Fase 1: las paredes de fondo dejan libre la boca de la portería; la red (fondo y laterales) tiene colisión. Sin input, el `linearDamping` frena (deriva); con input, el damping es 0 y manda la aceleración.
   - Decisión: el juego es **3D** (URP con Universal Renderer, `Rigidbody` 3D en el plano XZ). Prevalece sobre "2D o 2.5D" del GDD.
   - Decisión: `IPlayerBrain` y `PlayerIntent` van en `Core` para evitar el ciclo Gameplay ↔ Brains.
   - Repo git en la raíz del proyecto (movido desde la carpeta anidada `waterpoloPorotype/`).

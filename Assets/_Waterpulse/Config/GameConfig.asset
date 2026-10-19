@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec911346c0da4b142a63215b982e9952, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier: Waterpulse.Config::Waterpulse.Config.GameConfigSO
+  maxSpeed: 4
+  acceleration: 8
+  linearDamping: 2
+  turnSpeed: 540
+  playerRadius: 0.4
+  poolLength: 20
+  poolWidth: 12
+  goalWidth: 3
+  goalHeight: 0.9
+  cameraPitch: 60
+  cameraMargin: 1.5
+  cameraFieldOfView: 40
