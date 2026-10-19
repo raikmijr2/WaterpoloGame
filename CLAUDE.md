@@ -157,13 +157,14 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 3 — EN CURSO**
-- Fases completadas: Fase 0, Fase 1, Fase 2
+- Fase actual: **Fase 4 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3
 - Notas:
+  - Fase 3 (aprobado): gorros local azul, visitante blanco, porteros rojo; bañador del color del equipo. Parada por probabilidad (`SaveOdds`): 80 % al cuerpo, 0 % a 1,2 m; el portero ya no bloquea físicamente. Tras parar, saca al compañero libre más cercano a ~1 s. Colocación por rol según GDD sección 7 (con posesión se abren; sin posesión defienden y marcan al rival cercano). Las diferencias de estadísticas por rol se dejan para la Fase 10; los roles aún no se distinguen visualmente (pendiente de arte).
+  - Fase 3 (temporal): los rivales de campo (`canTakeBall = false`) se colocan pero no cogen la pelota hasta la IA de la Fase 4. Por eso, tras un gol local la pelota queda libre en el centro, y si el portero rival saca a un compañero, el pase queda libre.
   - Decisión: **control estilo FIFA**. El humano controla siempre al jugador de su equipo que tiene la pelota: al pasar, el control pasa al receptor. Prevalece sobre la sección 6 del GDD ("controla un sol personatge"). Cómo cambiar de jugador al defender está pendiente de decidir (Fase 4).
   - Fase 2 (aprobado): el local ataca hacia +X (derecha) todo el partido. Tiro: sin stick al centro de la portería; con stick arriba/abajo hacia ese palo. Pase: al compañero más cercano dentro de ±60° de la dirección del stick (sin stick, hacia donde mira); si no hay nadie, la pelota sale en esa dirección y queda libre. Valores: pase 10 m/s, tiro 14 m/s, radio de recogida 0,6 m, damping de la pelota suelta 1,5.
-  - Fase 2 (temporal): el generador crea 2 jugadores locales y un portero rival quieto (sin IA, no coge la pelota, solo bloquea). La Fase 3 los sustituye por los 8 jugadores.
-  - Fase 2: los jugadores de campo recogen la pelota por distancia (sin colisión física con ella); los porteros sí la bloquean físicamente. Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` es provisional hasta la `MatchStateMachine` de la Fase 5.
+  - Fase 2: los jugadores recogen la pelota por distancia (sin colisión física con ella). Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` es provisional hasta la `MatchStateMachine` de la Fase 5.
   - Fase 1 (aprobado): piscina 20×12 m, porterías de 3 m; velocidad 4 m/s, aceleración 8 m/s², `linearDamping` 2; cámara inclinada ~60° que encuadra todo el campo; HumanBrain lee WASD y también el stick izquierdo del mando.
   - Fase 1: las paredes de fondo dejan libre la boca de la portería; la red (fondo y laterales) tiene colisión. Sin input, el `linearDamping` frena (deriva); con input, el damping es 0 y manda la aceleración.
   - Decisión: el juego es **3D** (URP con Universal Renderer, `Rigidbody` 3D en el plano XZ). Prevalece sobre "2D o 2.5D" del GDD.

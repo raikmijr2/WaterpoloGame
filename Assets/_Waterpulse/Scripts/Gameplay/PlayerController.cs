@@ -10,7 +10,9 @@ namespace Waterpulse.Gameplay
     {
         [SerializeField] GameConfigSO config;
         [SerializeField] TeamSide team;
-        [SerializeField] bool isGoalkeeper;
+        [SerializeField] PlayerRole role;
+        [Tooltip("Fase 3 (temporal): los rivales de campo no cogen la pelota hasta que tengan IA en la Fase 4")]
+        [SerializeField] bool canTakeBall = true;
         [SerializeField] BallController ball;
 
         Rigidbody body;
@@ -19,7 +21,9 @@ namespace Waterpulse.Gameplay
         PlayerIntent intent;
 
         public TeamSide Team => team;
-        public bool IsGoalkeeper => isGoalkeeper;
+        public PlayerRole Role => role;
+        public bool IsGoalkeeper => role == PlayerRole.Goalkeeper;
+        public bool CanTakeBall => canTakeBall;
         public bool HasBall => ball != null && ball.Holder == this;
         public PlayerIntent CurrentIntent => intent;
         public Vector3 Position => transform.position;

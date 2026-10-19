@@ -39,6 +39,13 @@ namespace Waterpulse.Gameplay
         public PlayerController LastToucher { get; private set; }
         public bool IsFrozen { get; private set; }
         public Vector3 Position => body != null ? body.position : transform.position;
+        public Vector3 Velocity => body != null && !body.isKinematic ? body.linearVelocity : Vector3.zero;
+
+        // Identificador del vuelo actual (cambia en cada pase o tiro)
+        public int FlightId { get; private set; }
+
+        // Equipo que tuvo la pelota por última vez (se mantiene mientras está libre o en vuelo)
+        public bool HasPossession(TeamSide team) => hasPossessionTeam && possessionTeam == team;
 
         // Poseedor anterior, poseedor nuevo (null si la pelota queda libre o en vuelo)
         public event Action<PlayerController, PlayerController> HolderChanged;
@@ -52,14 +59,11 @@ namespace Waterpulse.Gameplay
             body.interpolation = RigidbodyInterpolation.Interpolate;
             players.AddRange(FindObjectsByType<PlayerController>(FindObjectsSortMode.None));
 
-            // Los jugadores de campo recogen la pelota por distancia: no deben empujarla ni hacerla rebotar.
-            // Los porteros sí la bloquean físicamente
+            // Los jugadores recogen la pelota por distancia y los porteros paran por probabilidad:
+            // ningún jugador debe empujarla ni hacerla rebotar físicamente
             var ballCollider = GetComponent<SphereCollider>();
             foreach (var p in players)
-            {
-                if (p.IsGoalkeeper) continue;
                 foreach (var c in p.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(ballCollider, c);
-            }
         }
 
         void FixedUpdate()
@@ -117,6 +121,14 @@ namespace Waterpulse.Gameplay
             return true;
         }
 
+        // El portero ha ganado la tirada de parada: se queda la pelota
+        public bool CatchByGoalkeeper(PlayerController goalkeeper)
+        {
+            if (State != BallState.InFlight || FlightKind != FlightKind.Shot || IsFrozen) return false;
+            GiveTo(goalkeeper);
+            return true;
+        }
+
         // Tras un gol: la pelota se detiene donde está hasta la reanudación
         public void Freeze()
         {
@@ -159,6 +171,7 @@ namespace Waterpulse.Gameplay
 
             SetHolder(null);
             State = BallState.InFlight;
+            FlightId++;
             FlightKind = kind;
             FlightFrom = from;
             FlightTarget = target;
@@ -235,14 +248,14 @@ namespace Waterpulse.Gameplay
             if (to != from) GameEvents.RaisePassCompleted(from.gameObject, to.gameObject);
         }
 
-        // Pelota libre: la coge el jugador de campo más cercano que la toque
+        // Pelota libre: la coge el jugador más cercano que la toque (también los porteros)
         void TryPickup()
         {
             PlayerController best = null;
             float bestDistance = float.MaxValue;
             foreach (var p in players)
             {
-                if (p.IsGoalkeeper || !CanTouch(p)) continue;
+                if (!CanTouch(p)) continue;
                 float d = FlatDistance(p.Position, body.position);
                 if (d < bestDistance)
                 {
@@ -255,6 +268,7 @@ namespace Waterpulse.Gameplay
 
         bool CanTouch(PlayerController p)
         {
+            if (!p.CanTakeBall) return false;
             if (p == releaser && releaserTimer > 0f) return false;
             return FlatDistance(p.Position, body.position) <= config.pickupRadius;
         }
@@ -268,7 +282,7 @@ namespace Waterpulse.Gameplay
             return point;
         }
 
-        // Cualquier choque (pared, poste, portero) corta el vuelo: la pelota rebota y queda libre
+        // Cualquier choque (pared, poste, red) corta el vuelo: la pelota rebota y queda libre
         void OnCollisionEnter(Collision collision)
         {
             if (State != BallState.InFlight) return;

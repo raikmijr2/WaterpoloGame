@@ -43,7 +43,7 @@ namespace Waterpulse.Gameplay
             float bestDistance = float.MaxValue;
             foreach (var p in FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
             {
-                if (p.Team != team || p.IsGoalkeeper) continue;
+                if (p.Team != team || p.IsGoalkeeper || !p.CanTakeBall) continue;
                 float d = Vector3.Distance(p.Position, pool.Center);
                 if (d < bestDistance)
                 {

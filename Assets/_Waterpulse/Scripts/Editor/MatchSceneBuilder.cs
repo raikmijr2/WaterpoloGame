@@ -36,12 +36,14 @@ namespace Waterpulse.EditorTools
         const float NetDepth = 0.8f;
         const float PlayerHeight = 1.2f;
         const float MarkerHeight = 0.02f;
-        const float GoalkeeperDepth = 0.8f;   // distancia del portero a su línea de gol
+        const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
         const string PhysicsDir = RootDir + "/Art/Physics";
 
-        // Fase 2 (temporal): dos jugadores locales y un portero rival quieto. La Fase 3 crea los 8 jugadores
-        static readonly Vector3 HomePlayer1Start = new Vector3(-3f, 0f, -2f);
-        static readonly Vector3 HomePlayer2Start = new Vector3(0f, 0f, 3f);
+        // Posición inicial en campo propio (x = avance hacia la portería rival, y = lateral), por rol.
+        // Durante el juego manda RolePositioning; esto es solo dónde aparecen
+        static readonly Vector2 AttackerStart = new Vector2(-1.5f, 2f);
+        static readonly Vector2 PlaymakerStart = new Vector2(-4f, -2.5f);
+        static readonly Vector2 DefenderStart = new Vector2(-7f, 0f);
 
         [MenuItem("Waterpulse/Build Match Scene", priority = 0)]
         static void BuildFromMenu()
@@ -69,11 +71,9 @@ namespace Waterpulse.EditorTools
             BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
             var ball = BuildBall(config, mats, pool);
 
-            var facingHome = Vector3.right * TeamSide.Home.AttackSign();
-            BuildPlayer(config, mats, ball, "Home_1", TeamSide.Home, false, HomePlayer1Start, facingHome, mats.HomeCap);
-            BuildPlayer(config, mats, ball, "Home_2", TeamSide.Home, false, HomePlayer2Start, facingHome, mats.HomeCap);
-            Vector3 awayGoalkeeper = pool.AttackedGoalCenter(TeamSide.Home) - facingHome * GoalkeeperDepth;
-            BuildPlayer(config, mats, ball, "Away_GK", TeamSide.Away, true, awayGoalkeeper, -facingHome, mats.GoalkeeperCap);
+            // Fase 3 (temporal): los rivales de campo no cogen la pelota hasta tener IA en la Fase 4
+            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, true);
+            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, false);
 
             var score = BuildMatchSystems(config, ball, pool);
             BuildHumanControl(ball, mats);
@@ -205,10 +205,33 @@ namespace Waterpulse.EditorTools
             return ball;
         }
 
-        static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, string name, TeamSide team, bool goalkeeper,
-                                Vector3 position, Vector3 facing, Material capMaterial)
+        // Un equipo: Atacant, Organitzador y Defensor con AIBrain, y el portero con GoalkeeperController
+        static void BuildTeam(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, TeamSide team,
+                              Material cap, Material suit, bool fieldPlayersTakeBall)
         {
-            var go = new GameObject(name);
+            var root = new GameObject("Team_" + team).transform;
+            float sign = team.AttackSign();
+            Vector3 facing = Vector3.right * sign;
+
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Attacker, StartPosition(pool, AttackerStart, sign), facing, cap, suit, fieldPlayersTakeBall);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Playmaker, StartPosition(pool, PlaymakerStart, sign), facing, cap, suit, fieldPlayersTakeBall);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Defender, StartPosition(pool, DefenderStart, sign), facing, cap, suit, fieldPlayersTakeBall);
+
+            Vector3 goalkeeper = pool.AttackedGoalCenter(team.Opponent()) + facing * c.goalkeeperDepth;
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Goalkeeper, goalkeeper, facing, mats.GoalkeeperCap, suit, true);
+        }
+
+        // Las posiciones del visitante son las del local reflejadas
+        static Vector3 StartPosition(PoolBounds pool, Vector2 start, float sign)
+        {
+            return pool.Center + new Vector3(start.x * sign, 0f, start.y * sign);
+        }
+
+        static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, Transform parent, TeamSide team,
+                                PlayerRole role, Vector3 position, Vector3 facing, Material capMaterial, Material suitMaterial, bool canTakeBall)
+        {
+            var go = new GameObject($"{team}_{role}");
+            go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(facing));
 
             var capsule = go.AddComponent<CapsuleCollider>();
@@ -221,13 +244,31 @@ namespace Waterpulse.EditorTools
             SetRef(controller, "config", c);
             SetRef(controller, "ball", ball);
             SetEnum(controller, "team", (int)team);
-            SetBool(controller, "isGoalkeeper", goalkeeper);
+            SetEnum(controller, "role", (int)role);
+            SetBool(controller, "canTakeBall", canTakeBall);
 
-            // Visual: cuerpo medio sumergido, gorro del equipo y "nariz" para ver hacia dónde mira
+            // Cerebro por defecto: el portero tiene el suyo; los de campo, IA de colocación
+            if (role == PlayerRole.Goalkeeper)
+            {
+                var keeper = go.AddComponent<GoalkeeperController>();
+                SetRef(keeper, "config", c);
+                SetRef(keeper, "ball", ball);
+                SetRef(keeper, "pool", pool);
+            }
+            else
+            {
+                var brain = go.AddComponent<AIBrain>();
+                SetRef(brain, "config", c);
+                SetRef(brain, "ball", ball);
+                SetRef(brain, "pool", pool);
+            }
+
+            // Visual: cuerpo medio sumergido, bañador del equipo, gorro y "nariz" para ver hacia dónde mira
             var visual = new GameObject("Visual").transform;
             visual.SetParent(go.transform, false);
             float d = c.playerRadius * 2f;
             Prim(PrimitiveType.Capsule, "Body", visual, Vector3.zero, new Vector3(d, PlayerHeight * 0.5f, d), mats.Body, false);
+            Prim(PrimitiveType.Cylinder, "Suit", visual, Vector3.zero, new Vector3(d * 1.05f, SuitHeight, d * 1.05f), suitMaterial, false);
             Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, capMaterial, false);
             Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
         }
@@ -379,7 +420,7 @@ namespace Waterpulse.EditorTools
         class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
-            public readonly Material HomeCap, GoalkeeperCap, Ball, Marker;
+            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Marker;
 
             public Materials()
             {
@@ -393,6 +434,9 @@ namespace Waterpulse.EditorTools
                 Net = Lit("GoalNet", new Color(1f, 1f, 1f, 0.3f), true);
                 Body = Lit("PlayerBody", new Color(0.95f, 0.8f, 0.65f));
                 HomeCap = Lit("HomeCap", new Color(0.1f, 0.3f, 0.95f));
+                AwayCap = Lit("AwayCap", new Color(0.97f, 0.97f, 0.97f));
+                HomeSuit = Lit("HomeSuit", new Color(0.05f, 0.18f, 0.6f));
+                AwaySuit = Lit("AwaySuit", new Color(0.85f, 0.85f, 0.85f));
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
                 Marker = Lit("ControlMarker", new Color(0.3f, 1f, 0.4f));

@@ -6,6 +6,8 @@
         "Waterpulse.Config",
         "Waterpulse.Core",
         "Waterpulse.Gameplay",
+        "Waterpulse.AI",
+        "Waterpulse.Brains",
         "Waterpulse.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

@@ -2,7 +2,9 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Waterpulse.Brains;
 using Waterpulse.Config;
+using Waterpulse.Core;
 using Waterpulse.EditorTools;
 using Waterpulse.Gameplay;
 
@@ -17,8 +19,10 @@ namespace Waterpulse.Tests.EditMode
             MatchSceneBuilder.Build();
             MatchSceneBuilder.Build();
 
-            // Fase 2: dos jugadores locales y un portero rival
-            Assert.AreEqual(3, Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length, "jugadores");
+            // Fase 3: dos equipos de 3 jugadores de campo + portero
+            Assert.AreEqual(8, Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length, "jugadores");
+            Assert.AreEqual(6, Object.FindObjectsByType<AIBrain>(FindObjectsSortMode.None).Length, "IA de campo");
+            Assert.AreEqual(2, Object.FindObjectsByType<GoalkeeperController>(FindObjectsSortMode.None).Length, "porteros");
             Assert.AreEqual(1, Object.FindObjectsByType<BallController>(FindObjectsSortMode.None).Length, "pelotas");
             Assert.AreEqual(1, Object.FindObjectsByType<PoolBounds>(FindObjectsSortMode.None).Length, "piscinas");
             Assert.AreEqual(1, Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Length, "cámaras");
@@ -49,8 +53,21 @@ namespace Waterpulse.Tests.EditMode
                 AssertRef(player, "config", config);
                 AssertRef(player, "ball", ball);
             }
+            var pool = Object.FindFirstObjectByType<PoolBounds>();
+            foreach (var brain in Object.FindObjectsByType<AIBrain>(FindObjectsSortMode.None))
+            {
+                AssertRef(brain, "config", config);
+                AssertRef(brain, "ball", ball);
+                AssertRef(brain, "pool", pool);
+            }
+            foreach (var keeper in Object.FindObjectsByType<GoalkeeperController>(FindObjectsSortMode.None))
+            {
+                AssertRef(keeper, "config", config);
+                AssertRef(keeper, "ball", ball);
+                AssertRef(keeper, "pool", pool);
+            }
             AssertRef(ball, "config", config);
-            AssertRef(Object.FindFirstObjectByType<PoolBounds>(), "config", config);
+            AssertRef(pool, "config", config);
             AssertRef(Object.FindFirstObjectByType<MatchCamera>(), "config", config);
             AssertRef(Object.FindFirstObjectByType<MatchCamera>(), "pool", Object.FindFirstObjectByType<PoolBounds>());
         }
@@ -61,7 +78,31 @@ namespace Waterpulse.Tests.EditMode
             MatchSceneBuilder.Build();
 
             var defenders = Object.FindObjectsByType<Goal>(FindObjectsSortMode.None).Select(g => g.DefendingTeam).ToList();
-            CollectionAssert.AreEquivalent(new[] { Waterpulse.Core.TeamSide.Home, Waterpulse.Core.TeamSide.Away }, defenders);
+            CollectionAssert.AreEquivalent(new[] { TeamSide.Home, TeamSide.Away }, defenders);
+        }
+
+        [Test]
+        public void Build_EachTeamHasOneOfEachRole()
+        {
+            MatchSceneBuilder.Build();
+
+            var players = Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var team in new[] { TeamSide.Home, TeamSide.Away })
+            foreach (var role in new[] { PlayerRole.Attacker, PlayerRole.Playmaker, PlayerRole.Defender, PlayerRole.Goalkeeper })
+                Assert.AreEqual(1, players.Count(p => p.Team == team && p.Role == role), $"{team} {role}");
+        }
+
+        [Test]
+        public void Build_RivalFieldPlayersCannotTakeBallYet()
+        {
+            MatchSceneBuilder.Build();
+
+            // Fase 3 (temporal): hasta la IA de la Fase 4
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                bool expected = p.Team == TeamSide.Home || p.IsGoalkeeper;
+                Assert.AreEqual(expected, p.CanTakeBall, p.name);
+            }
         }
 
         static void AssertRef(Object target, string field, Object expected)
