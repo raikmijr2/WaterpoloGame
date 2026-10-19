@@ -4,6 +4,7 @@
     "references": [
         "Waterpulse.Logic",
         "Waterpulse.Config",
+        "Waterpulse.Core",
         "Waterpulse.Gameplay",
         "Waterpulse.Editor",
         "UnityEngine.TestRunner",

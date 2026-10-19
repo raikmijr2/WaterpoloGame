@@ -4,9 +4,12 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using Waterpulse.Brains;
 using Waterpulse.Config;
+using Waterpulse.Core;
 using Waterpulse.Gameplay;
+using Waterpulse.UI;
 
 namespace Waterpulse.EditorTools
 {
@@ -32,7 +35,13 @@ namespace Waterpulse.EditorTools
         const float PostSize = 0.12f;
         const float NetDepth = 0.8f;
         const float PlayerHeight = 1.2f;
-        const float PlayerStartX = -3f;
+        const float MarkerHeight = 0.02f;
+        const float GoalkeeperDepth = 0.8f;   // distancia del portero a su línea de gol
+        const string PhysicsDir = RootDir + "/Art/Physics";
+
+        // Fase 2 (temporal): dos jugadores locales y un portero rival quieto. La Fase 3 crea los 8 jugadores
+        static readonly Vector3 HomePlayer1Start = new Vector3(-3f, 0f, -2f);
+        static readonly Vector3 HomePlayer2Start = new Vector3(0f, 0f, 3f);
 
         [MenuItem("Waterpulse/Build Match Scene", priority = 0)]
         static void BuildFromMenu()
@@ -47,6 +56,7 @@ namespace Waterpulse.EditorTools
             EnsureFolder(RootDir + "/Scenes");
             EnsureFolder(RootDir + "/Config");
             EnsureFolder(MaterialDir);
+            EnsureFolder(PhysicsDir);
 
             // La escena nueva se crea ANTES de cargar assets: NewScene descarga los assets no usados
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -55,10 +65,20 @@ namespace Waterpulse.EditorTools
 
             BuildLight();
             var pool = BuildPool(config, mats);
-            BuildGoal(config, mats, pool.transform, -1f);
-            BuildGoal(config, mats, pool.transform, 1f);
-            BuildPlayer(config, mats);
+            BuildGoal(config, mats, pool.transform, -1f, TeamSide.Home);
+            BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
+            var ball = BuildBall(config, mats, pool);
+
+            var facingHome = Vector3.right * TeamSide.Home.AttackSign();
+            BuildPlayer(config, mats, ball, "Home_1", TeamSide.Home, false, HomePlayer1Start, facingHome, mats.HomeCap);
+            BuildPlayer(config, mats, ball, "Home_2", TeamSide.Home, false, HomePlayer2Start, facingHome, mats.HomeCap);
+            Vector3 awayGoalkeeper = pool.AttackedGoalCenter(TeamSide.Home) - facingHome * GoalkeeperDepth;
+            BuildPlayer(config, mats, ball, "Away_GK", TeamSide.Away, true, awayGoalkeeper, -facingHome, mats.GoalkeeperCap);
+
+            var score = BuildMatchSystems(config, ball, pool);
+            BuildHumanControl(ball, mats);
             BuildCamera(config, pool);
+            BuildScoreboard(score);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -140,8 +160,8 @@ namespace Waterpulse.EditorTools
             Prim(PrimitiveType.Cube, name, parent, new Vector3(x, 0.01f, 0f), new Vector3(LineWidth, 0.01f, width), mat, false, false);
         }
 
-        // Portería: postes y red con colisión (la red cierra la boca por detrás). La detección de gol llega en la Fase 2
-        static void BuildGoal(GameConfigSO c, Materials mats, Transform pool, float side)
+        // Portería: postes y red con colisión (la red cierra la boca por detrás) y trigger de gol dentro de la red
+        static void BuildGoal(GameConfigSO c, Materials mats, Transform pool, float side, TeamSide defendingTeam)
         {
             var root = new GameObject(side > 0f ? "Goal_East" : "Goal_West").transform;
             root.SetParent(pool, false);
@@ -158,30 +178,129 @@ namespace Waterpulse.EditorTools
             Prim(PrimitiveType.Cube, "Net_Left", root, new Vector3(NetDepth * 0.5f * side, postY, -netZ), new Vector3(NetDepth, postH, PostSize), mats.Net, true, false);
             Prim(PrimitiveType.Cube, "Net_Right", root, new Vector3(NetDepth * 0.5f * side, postY, netZ), new Vector3(NetDepth, postH, PostSize), mats.Net, true, false);
             Prim(PrimitiveType.Cube, "Net_Top", root, new Vector3(NetDepth * 0.5f * side, h, 0f), new Vector3(NetDepth, 0.02f, c.goalWidth), mats.Net, false, false);
+
+            // Trigger de gol: empieza a 2 radios de la línea, así la pelota cuenta cuando la ha cruzado entera
+            float front = c.ballRadius * 2f;
+            float back = NetDepth - PostSize * 0.5f;
+            var trigger = new GameObject("GoalTrigger");
+            trigger.transform.SetParent(root, false);
+            trigger.transform.localPosition = new Vector3((front + back) * 0.5f * side, postY, 0f);
+            var box = trigger.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(back - front, postH, c.goalWidth);
+            var goal = trigger.AddComponent<Goal>();
+            SetEnum(goal, "defendingTeam", (int)defendingTeam);
         }
 
-        static void BuildPlayer(GameConfigSO c, Materials mats)
+        static BallController BuildBall(GameConfigSO c, Materials mats, PoolBounds pool)
         {
-            var go = new GameObject("Player_Human");
-            go.transform.position = new Vector3(PlayerStartX, 0f, 0f);
-            go.transform.rotation = Quaternion.LookRotation(Vector3.right);
+            var go = Prim(PrimitiveType.Sphere, "Ball", null, pool.Center, Vector3.one * c.ballRadius * 2f, mats.Ball, true);
+            go.GetComponent<SphereCollider>().sharedMaterial = LoadOrCreateBallPhysics(c);
+            var body = go.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.mass = c.ballMass;
+            var ball = go.AddComponent<BallController>();
+            SetRef(ball, "config", c);
+            SetRef(ball, "pool", pool);
+            return ball;
+        }
+
+        static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, string name, TeamSide team, bool goalkeeper,
+                                Vector3 position, Vector3 facing, Material capMaterial)
+        {
+            var go = new GameObject(name);
+            go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(facing));
 
             var capsule = go.AddComponent<CapsuleCollider>();
             capsule.radius = c.playerRadius;
             capsule.height = PlayerHeight;
             var body = go.AddComponent<Rigidbody>();
             body.useGravity = false;
-            go.AddComponent<HumanBrain>();
+            body.mass = c.playerMass;
             var controller = go.AddComponent<PlayerController>();
             SetRef(controller, "config", c);
+            SetRef(controller, "ball", ball);
+            SetEnum(controller, "team", (int)team);
+            SetBool(controller, "isGoalkeeper", goalkeeper);
 
-            // Visual: cuerpo medio sumergido, gorro y "nariz" para ver hacia dónde mira
+            // Visual: cuerpo medio sumergido, gorro del equipo y "nariz" para ver hacia dónde mira
             var visual = new GameObject("Visual").transform;
             visual.SetParent(go.transform, false);
             float d = c.playerRadius * 2f;
             Prim(PrimitiveType.Capsule, "Body", visual, Vector3.zero, new Vector3(d, PlayerHeight * 0.5f, d), mats.Body, false);
-            Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, mats.Cap, false);
+            Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, capMaterial, false);
             Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
+        }
+
+        static MatchScore BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool)
+        {
+            var go = new GameObject("Match");
+            var score = go.AddComponent<MatchScore>();
+            var restart = go.AddComponent<GoalRestart>();
+            SetRef(restart, "config", c);
+            SetRef(restart, "ball", ball);
+            SetRef(restart, "pool", pool);
+            return score;
+        }
+
+        // Control humano estilo FIFA: un único HumanBrain que ControlSwitcher asigna al jugador con la pelota
+        static void BuildHumanControl(BallController ball, Materials mats)
+        {
+            var go = new GameObject("HumanControl");
+            var human = go.AddComponent<HumanBrain>();
+            var switcher = go.AddComponent<ControlSwitcher>();
+            var marker = Prim(PrimitiveType.Cylinder, "ControlMarker", null, new Vector3(0f, MarkerHeight, 0f), new Vector3(1.4f, 0.01f, 1.4f), mats.Marker, false, false);
+            SetRef(switcher, "human", human);
+            SetRef(switcher, "ball", ball);
+            SetRef(switcher, "marker", marker.transform);
+            SetEnum(switcher, "humanTeam", (int)TeamSide.Home);
+        }
+
+        static void BuildScoreboard(MatchScore score)
+        {
+            var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            var textGo = new GameObject("Scoreboard", typeof(RectTransform), typeof(Text), typeof(Outline));
+            textGo.transform.SetParent(canvasGo.transform, false);
+            var rt = textGo.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -20f);
+            rt.sizeDelta = new Vector2(900f, 80f);
+            var text = textGo.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = 48;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            textGo.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
+
+            var view = canvasGo.AddComponent<ScoreboardView>();
+            SetRef(view, "score", score);
+            SetRef(view, "label", text);
+        }
+
+        static PhysicsMaterial LoadOrCreateBallPhysics(GameConfigSO c)
+        {
+            string path = PhysicsDir + "/Ball.physicMaterial";
+            var mat = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(path);
+            if (mat == null)
+            {
+                mat = new PhysicsMaterial("Ball");
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.bounciness = c.ballBounciness;
+            mat.bounceCombine = PhysicsMaterialCombine.Maximum;
+            mat.dynamicFriction = 0f;
+            mat.staticFriction = 0f;
+            mat.frictionCombine = PhysicsMaterialCombine.Minimum;
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         static void BuildCamera(GameConfigSO c, PoolBounds pool)
@@ -215,6 +334,24 @@ namespace Waterpulse.EditorTools
             return go;
         }
 
+        static void SetEnum(Object target, string field, int value)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null) { Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}"); return; }
+            prop.intValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void SetBool(Object target, string field, bool value)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null) { Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}"); return; }
+            prop.boolValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         static void SetRef(Object target, string field, Object value)
         {
             var so = new SerializedObject(target);
@@ -241,7 +378,8 @@ namespace Waterpulse.EditorTools
         // Materiales URP generados (se actualizan en cada ejecución, no se duplican)
         class Materials
         {
-            public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Cap, Nose;
+            public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
+            public readonly Material HomeCap, GoalkeeperCap, Ball, Marker;
 
             public Materials()
             {
@@ -254,7 +392,10 @@ namespace Waterpulse.EditorTools
                 GoalFrame = Lit("GoalFrame", Color.white);
                 Net = Lit("GoalNet", new Color(1f, 1f, 1f, 0.3f), true);
                 Body = Lit("PlayerBody", new Color(0.95f, 0.8f, 0.65f));
-                Cap = Lit("PlayerCap", new Color(0.1f, 0.3f, 0.95f));
+                HomeCap = Lit("HomeCap", new Color(0.1f, 0.3f, 0.95f));
+                GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
+                Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
+                Marker = Lit("ControlMarker", new Color(0.3f, 1f, 0.4f));
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
             }
 

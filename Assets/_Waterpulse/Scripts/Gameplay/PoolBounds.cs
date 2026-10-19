@@ -1,5 +1,6 @@
 using UnityEngine;
 using Waterpulse.Config;
+using Waterpulse.Core;
 
 namespace Waterpulse.Gameplay
 {
@@ -12,6 +13,12 @@ namespace Waterpulse.Gameplay
         public float HalfWidth => config.poolWidth * 0.5f;
         public float WaterY => transform.position.y;
         public Vector3 Center => transform.position;
+
+        // Centro de la línea de gol de la portería hacia la que ataca el equipo
+        public Vector3 AttackedGoalCenter(TeamSide attacking)
+        {
+            return Center + Vector3.right * (HalfLength * attacking.AttackSign());
+        }
 
         public bool Contains(Vector3 point, float margin = 0f)
         {

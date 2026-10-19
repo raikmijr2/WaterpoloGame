@@ -70,6 +70,7 @@ Assets/_Waterpulse/
 | Combo | Multiplicador que sube con acciones positivas encadenadas y vuelve a 0 al perder la posesión |
 | Duración del partido | Entre 120 y 180 s (configurable) |
 | Controles PC | WASD mover · J pasar/recuperar · K tirar · L habilidad |
+| Control del humano | Estilo FIFA: controla al jugador de su equipo que tiene la pelota (decisión del usuario, prevalece sobre el GDD) |
 
 **Ganador = más goles.** Los puntos son estadística individual (estilo Rocket League) para el MVP y el récord personal; nunca deciden el resultado.
 
@@ -77,8 +78,8 @@ Assets/_Waterpulse/
 
 ## Decisiones pendientes (pregúntame antes de implementarlas)
 
-- [ ] Reanudación tras gol (¿saca el equipo que lo ha recibido, desde el centro?)
-- [ ] Balón fuera de la piscina
+- [x] Reanudación tras gol → la pelota vuelve al centro y la recibe el equipo que ha encajado (su jugador de campo más cercano al centro).
+- [x] Balón fuera de la piscina → no puede salir: rebota en las paredes.
 - [ ] Límite de tiempo de posesión para tirar
 - [ ] Empate al final (gol de oro, prórroga o empate válido)
 - [ ] Duración exacta del partido
@@ -145,6 +146,7 @@ Assets/_Waterpulse/
 ### Fase 9 — Pulido
 - `AudioDirector`: público, silbatos, salpicaduras y huecos para comentarios cortos en catalán.
 - Feedback de juego: pequeños shakes, pausas breves al marcar, partículas de agua.
+- Pelota con altura **solo visual**: parábola en pases y tiros, bote al tocar el agua y frenada, como en la vida real (pedido en la Fase 2). La física sigue en el plano XZ.
 - **Hecho cuando:** el partido se siente vivo sin perder legibilidad.
 
 ### Fase 10 — Balance
@@ -155,9 +157,13 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 2 — EN CURSO**
-- Fases completadas: Fase 0, Fase 1
+- Fase actual: **Fase 3 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1, Fase 2
 - Notas:
+  - Decisión: **control estilo FIFA**. El humano controla siempre al jugador de su equipo que tiene la pelota: al pasar, el control pasa al receptor. Prevalece sobre la sección 6 del GDD ("controla un sol personatge"). Cómo cambiar de jugador al defender está pendiente de decidir (Fase 4).
+  - Fase 2 (aprobado): el local ataca hacia +X (derecha) todo el partido. Tiro: sin stick al centro de la portería; con stick arriba/abajo hacia ese palo. Pase: al compañero más cercano dentro de ±60° de la dirección del stick (sin stick, hacia donde mira); si no hay nadie, la pelota sale en esa dirección y queda libre. Valores: pase 10 m/s, tiro 14 m/s, radio de recogida 0,6 m, damping de la pelota suelta 1,5.
+  - Fase 2 (temporal): el generador crea 2 jugadores locales y un portero rival quieto (sin IA, no coge la pelota, solo bloquea). La Fase 3 los sustituye por los 8 jugadores.
+  - Fase 2: los jugadores de campo recogen la pelota por distancia (sin colisión física con ella); los porteros sí la bloquean físicamente. Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` es provisional hasta la `MatchStateMachine` de la Fase 5.
   - Fase 1 (aprobado): piscina 20×12 m, porterías de 3 m; velocidad 4 m/s, aceleración 8 m/s², `linearDamping` 2; cámara inclinada ~60° que encuadra todo el campo; HumanBrain lee WASD y también el stick izquierdo del mando.
   - Fase 1: las paredes de fondo dejan libre la boca de la portería; la red (fondo y laterales) tiene colisión. Sin input, el `linearDamping` frena (deriva); con input, el damping es 0 y manda la aceleración.
   - Decisión: el juego es **3D** (URP con Universal Renderer, `Rigidbody` 3D en el plano XZ). Prevalece sobre "2D o 2.5D" del GDD.
