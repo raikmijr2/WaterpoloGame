@@ -1,0 +1,14 @@
+{
+    "name": "Waterpulse.Editor",
+    "rootNamespace": "Waterpulse.Editor",
+    "references": ["Waterpulse.Core", "Waterpulse.Config", "Waterpulse.Logic", "Waterpulse.Gameplay", "Waterpulse.AI", "Waterpulse.Brains", "Waterpulse.Abilities", "Waterpulse.UI", "Waterpulse.Audio", "Unity.InputSystem", "UnityEngine.UI"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

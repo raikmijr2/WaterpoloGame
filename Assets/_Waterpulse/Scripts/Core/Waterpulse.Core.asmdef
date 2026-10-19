@@ -1,0 +1,14 @@
+{
+    "name": "Waterpulse.Core",
+    "rootNamespace": "Waterpulse.Core",
+    "references": ["Waterpulse.Config"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

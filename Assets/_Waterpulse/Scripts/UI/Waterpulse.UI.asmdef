@@ -1,0 +1,14 @@
+{
+    "name": "Waterpulse.UI",
+    "rootNamespace": "Waterpulse.UI",
+    "references": ["Waterpulse.Core", "Waterpulse.Config", "Waterpulse.Logic", "Waterpulse.Gameplay", "Unity.InputSystem", "UnityEngine.UI"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

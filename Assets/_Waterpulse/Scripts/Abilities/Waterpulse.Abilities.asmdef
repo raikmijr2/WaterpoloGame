@@ -1,0 +1,14 @@
+{
+    "name": "Waterpulse.Abilities",
+    "rootNamespace": "Waterpulse.Abilities",
+    "references": ["Waterpulse.Core", "Waterpulse.Config", "Waterpulse.Logic", "Waterpulse.Gameplay"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
