@@ -10,9 +10,11 @@ namespace Waterpulse.Core
         public static event Action<GameObject, GameObject> PassCompleted;    // pasador, receptor
         public static event Action<TeamSide> PossessionChanged;              // equipo que pasa a tener la pelota
         public static event Action<GameObject> Save;                         // portero que para el tiro
+        public static event Action<GameObject, GameObject> Interception;     // interceptor, pasador
 
         public static void RaiseGoal(TeamSide scoringTeam, GameObject scorer) => Goal?.Invoke(scoringTeam, scorer);
         public static void RaiseSave(GameObject goalkeeper) => Save?.Invoke(goalkeeper);
+        public static void RaiseInterception(GameObject interceptor, GameObject passer) => Interception?.Invoke(interceptor, passer);
         public static void RaisePassCompleted(GameObject from, GameObject to) => PassCompleted?.Invoke(from, to);
         public static void RaisePossessionChanged(TeamSide team) => PossessionChanged?.Invoke(team);
 
@@ -24,6 +26,7 @@ namespace Waterpulse.Core
             PassCompleted = null;
             PossessionChanged = null;
             Save = null;
+            Interception = null;
         }
     }
 }

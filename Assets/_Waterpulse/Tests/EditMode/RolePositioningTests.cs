@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using Waterpulse.AI;
@@ -12,7 +11,6 @@ namespace Waterpulse.Tests.EditMode
     {
         GameConfigSO cfg;
         RolePositioning.Pitch pitch;
-        static readonly List<Vector3> NoOpponents = new List<Vector3>();
 
         [SetUp]
         public void SetUp()
@@ -24,9 +22,9 @@ namespace Waterpulse.Tests.EditMode
         [TearDown]
         public void TearDown() => Object.DestroyImmediate(cfg);
 
-        Vector3 Target(PlayerRole role, TeamSide team, bool hasBall, Vector3 ball, List<Vector3> opponents = null)
+        Vector3 Target(PlayerRole role, TeamSide team, bool hasBall, Vector3 ball)
         {
-            return RolePositioning.TargetFor(role, team, hasBall, ball, opponents ?? NoOpponents, pitch, cfg);
+            return RolePositioning.TargetFor(role, team, hasBall, ball, pitch, cfg);
         }
 
         [Test]
@@ -75,24 +73,29 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void WithoutBall_MarksNearbyOpponent_OnGoalSide()
+        public void MarkPosition_IsGoalSideAtMarkDistance()
         {
-            var ball = new Vector3(0f, 0f, 0f);
-            Vector3 free = Target(PlayerRole.Defender, TeamSide.Home, false, ball);
-            var rival = free + new Vector3(0.5f, 0f, 1f);
-
-            Vector3 marking = Target(PlayerRole.Defender, TeamSide.Home, false, ball, new List<Vector3> { rival });
-            Assert.AreEqual(cfg.markDistance, Vector3.Distance(marking, rival), 1e-3f);
-            Assert.Less(marking.x, rival.x, "debe quedar entre el rival y la portería propia");
+            var rival = new Vector3(2f, 0f, 1f);
+            Vector3 mark = RolePositioning.MarkPosition(rival, TeamSide.Home, pitch, cfg);
+            Assert.AreEqual(cfg.markDistance, Vector3.Distance(mark, rival), 1e-3f);
+            Assert.Less(mark.x, rival.x, "el local defiende la portería de -X: debe quedar entre el rival y ella");
         }
 
         [Test]
-        public void WithBall_IgnoresOpponentsForMarking()
+        public void MarkPosition_AwayDefendsPositiveX()
         {
-            var ball = new Vector3(0f, 0f, 0f);
-            Vector3 alone = Target(PlayerRole.Playmaker, TeamSide.Home, true, ball);
-            Vector3 withRival = Target(PlayerRole.Playmaker, TeamSide.Home, true, ball, new List<Vector3> { alone });
-            Assert.AreEqual(alone, withRival);
+            var rival = new Vector3(-2f, 0f, -1f);
+            Vector3 mark = RolePositioning.MarkPosition(rival, TeamSide.Away, pitch, cfg);
+            Assert.Greater(mark.x, rival.x);
+        }
+
+        [Test]
+        public void MarkPosition_StaysInsideField()
+        {
+            var rival = new Vector3(-9.8f, 0f, 5.8f);
+            Vector3 mark = RolePositioning.MarkPosition(rival, TeamSide.Home, pitch, cfg);
+            Assert.GreaterOrEqual(mark.x, -pitch.HalfLength + cfg.formationEdgeMargin - 1e-4f);
+            Assert.LessOrEqual(Mathf.Abs(mark.z), pitch.HalfWidth - cfg.formationEdgeMargin + 1e-4f);
         }
     }
 }

@@ -89,10 +89,46 @@ namespace Waterpulse.Config
         public float formationMinGoalDistance = 2f;
         [Tooltip("Distancia mínima a bandas y línea de gol propia (m)")]
         public float formationEdgeMargin = 1f;
-        [Tooltip("Sin posesión, marcan al rival que esté a menos de esta distancia de su posición (m)")]
-        public float markRadius = 3f;
         [Tooltip("Distancia a la que se ponen del rival marcado, hacia su portería (m)")]
         public float markDistance = 1.2f;
+
+        [Header("Recuperar (J sin pelota)")]
+        [Tooltip("Distancia máxima al poseedor para intentar recuperar (m)")]
+        public float recoverRange = 1.2f;
+        [Tooltip("A esta distancia o menos se aplica la probabilidad máxima (m)")]
+        public float recoverCloseDistance = 0.8f;
+        [Tooltip("Probabilidad al límite del alcance (0-1)")]
+        [Range(0f, 1f)] public float recoverChanceFar = 0.5f;
+        [Tooltip("Probabilidad pegado al poseedor (0-1)")]
+        [Range(0f, 1f)] public float recoverChanceClose = 0.75f;
+        [Tooltip("Espera tras un intento fallido (s)")]
+        public float recoverCooldown = 0.8f;
+        [Tooltip("Tiempo tras ganar la pelota durante el que no te la pueden quitar (s). 0 = sin protección")]
+        public float recoverImmunity = 0.5f;
+
+        [Header("Intercepción de pases")]
+        [Tooltip("Un pase que pasa a esta distancia de un rival puede ser interceptado (m)")]
+        public float interceptRadius = 0.8f;
+        [Tooltip("Probabilidad de intercepción (una tirada por rival y pase)")]
+        [Range(0f, 1f)] public float interceptChance = 0.4f;
+
+        [Header("Cambio automático de jugador al defender")]
+        [Tooltip("El otro jugador debe estar al menos esto más cerca de la pelota para cambiar (m)")]
+        public float autoSwitchMargin = 1.5f;
+        [Tooltip("Tiempo mínimo entre cambios automáticos (s)")]
+        public float autoSwitchCooldown = 0.5f;
+
+        [Header("IA: ataque")]
+        [Tooltip("Tira si está a esta distancia de la portería o menos y la línea está libre (m)")]
+        public float aiShootRange = 6f;
+        [Tooltip("Se siente presionado si un rival está a esta distancia o menos (m)")]
+        public float aiPressureRadius = 1.5f;
+        [Tooltip("Anchura de las líneas de pase y tiro: un rival a menos de esto la tapa (m)")]
+        public float aiLaneWidth = 0.8f;
+        [Tooltip("Distancia a la portería rival a la que avanza el jugador con pelota (m)")]
+        public float aiAdvanceDistance = 5f;
+        [Tooltip("Distancia del presionador al poseedor, del lado de su portería (m)")]
+        public float aiPressDistance = 0.8f;
 
         [Header("IA: movimiento")]
         [Tooltip("A esta distancia del objetivo se considera que ha llegado (m)")]

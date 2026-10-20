@@ -157,12 +157,15 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 4 — EN CURSO**
-- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3
+- Fase actual: **Fase 5 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3, Fase 4
 - Notas:
+  - Fase 4 (aprobado): al defender, el control salta al jugador de campo propio más cercano a la pelota (margen 1,5 m, espera 0,5 s). Recuperar con J: alcance 1,2 m, 50 % al límite y 75 % pegado, 0,8 s de espera si falla. Intercepción automática: 40 % si el pase pasa a menos de 0,8 m de un rival (una tirada por rival y pase); los tiros no se interceptan. Los compañeros del humano solo se colocan y marcan. IA rival: avanza, pasa si la presionan (a menos de 1,5 m) y tira a menos de 6 m con la línea libre, a un palo al azar. Dificultad única "Competidor" (`DifficultySO`), sin habilidades.
+  - Fase 4 (añadido y validado): tras ganar la pelota hay 0,5 s en los que no te la pueden quitar (`recoverImmunity`, 0 = desactivado), para evitar robos en cadena; y a los porteros no se les puede quitar la pelota.
+  - Fase 4: desaparece la restricción temporal `canTakeBall` de la Fase 3.
+  - Fase 4 (corrección tras prueba): solo un jugador va a por el poseedor; `TeamAI` reparte un marcaje único por atacante (nunca al poseedor) y solo cuando el equipo defiende (sin posesión de nadie, todos en formación; así se evita el bucle de marcajes cruzados). Presionador, perseguidor e interceptor van a máxima velocidad. Los compañeros del humano tienen un `TeamAI` pasivo: solo marcajes.
   - Fase 3 (aprobado): gorros local azul, visitante blanco, porteros rojo; bañador del color del equipo. Parada por probabilidad (`SaveOdds`): 80 % al cuerpo, 0 % a 1,2 m; el portero ya no bloquea físicamente. Tras parar, saca al compañero libre más cercano a ~1 s. Colocación por rol según GDD sección 7 (con posesión se abren; sin posesión defienden y marcan al rival cercano). Las diferencias de estadísticas por rol se dejan para la Fase 10; los roles aún no se distinguen visualmente (pendiente de arte).
-  - Fase 3 (temporal): los rivales de campo (`canTakeBall = false`) se colocan pero no cogen la pelota hasta la IA de la Fase 4. Por eso, tras un gol local la pelota queda libre en el centro, y si el portero rival saca a un compañero, el pase queda libre.
-  - Decisión: **control estilo FIFA**. El humano controla siempre al jugador de su equipo que tiene la pelota: al pasar, el control pasa al receptor. Prevalece sobre la sección 6 del GDD ("controla un sol personatge"). Cómo cambiar de jugador al defender está pendiente de decidir (Fase 4).
+  - Decisión: **control estilo FIFA**. El humano controla siempre al jugador de su equipo que tiene la pelota: al pasar, el control pasa al receptor. Prevalece sobre la sección 6 del GDD ("controla un sol personatge"). Al defender, el control salta automáticamente al más cercano a la pelota (ver Fase 4).
   - Fase 2 (aprobado): el local ataca hacia +X (derecha) todo el partido. Tiro: sin stick al centro de la portería; con stick arriba/abajo hacia ese palo. Pase: al compañero más cercano dentro de ±60° de la dirección del stick (sin stick, hacia donde mira); si no hay nadie, la pelota sale en esa dirección y queda libre. Valores: pase 10 m/s, tiro 14 m/s, radio de recogida 0,6 m, damping de la pelota suelta 1,5.
   - Fase 2: los jugadores recogen la pelota por distancia (sin colisión física con ella). Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` es provisional hasta la `MatchStateMachine` de la Fase 5.
   - Fase 1 (aprobado): piscina 20×12 m, porterías de 3 m; velocidad 4 m/s, aceleración 8 m/s², `linearDamping` 2; cámara inclinada ~60° que encuadra todo el campo; HumanBrain lee WASD y también el stick izquierdo del mando.

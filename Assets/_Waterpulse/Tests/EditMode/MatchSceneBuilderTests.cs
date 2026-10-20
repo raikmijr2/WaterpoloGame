@@ -2,6 +2,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Waterpulse.AI;
 using Waterpulse.Brains;
 using Waterpulse.Config;
 using Waterpulse.Core;
@@ -93,15 +94,27 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_RivalFieldPlayersCannotTakeBallYet()
+        public void Build_TeamAI_AggressiveRival_PassiveHome()
         {
             MatchSceneBuilder.Build();
 
-            // Fase 3 (temporal): hasta la IA de la Fase 4
-            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            var teamAIs = Object.FindObjectsByType<TeamAI>(FindObjectsSortMode.None);
+            Assert.AreEqual(2, teamAIs.Length, "un TeamAI por equipo");
+            var home = teamAIs.Single(t => t.Team == TeamSide.Home);
+            var away = teamAIs.Single(t => t.Team == TeamSide.Away);
+            Assert.IsFalse(home.IsAggressive, "compañeros del humano: solo marcajes");
+            Assert.IsTrue(away.IsAggressive, "rival: IA completa");
+
+            var difficulty = AssetDatabase.LoadAssetAtPath<DifficultySO>(MatchSceneBuilder.DifficultyPath);
+            Assert.IsNotNull(difficulty, "asset de dificultad");
+            AssertRef(home, "difficulty", difficulty);
+            AssertRef(away, "difficulty", difficulty);
+
+            // Cada jugador de campo usa el TeamAI de su equipo
+            foreach (var brain in Object.FindObjectsByType<AIBrain>(FindObjectsSortMode.None))
             {
-                bool expected = p.Team == TeamSide.Home || p.IsGoalkeeper;
-                Assert.AreEqual(expected, p.CanTakeBall, p.name);
+                var team = brain.GetComponent<PlayerController>().Team;
+                AssertRef(brain, "teamAI", team == TeamSide.Home ? home : away);
             }
         }
 

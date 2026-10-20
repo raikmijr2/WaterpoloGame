@@ -11,19 +11,18 @@ namespace Waterpulse.Gameplay
         [SerializeField] GameConfigSO config;
         [SerializeField] TeamSide team;
         [SerializeField] PlayerRole role;
-        [Tooltip("Fase 3 (temporal): los rivales de campo no cogen la pelota hasta que tengan IA en la Fase 4")]
-        [SerializeField] bool canTakeBall = true;
         [SerializeField] BallController ball;
 
         Rigidbody body;
         IPlayerBrain defaultBrain;
         IPlayerBrain brain;
         PlayerIntent intent;
+        float recoverCooldownTimer;
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
         public bool IsGoalkeeper => role == PlayerRole.Goalkeeper;
-        public bool CanTakeBall => canTakeBall;
+        public bool CanTryRecover => recoverCooldownTimer <= 0f;
         public bool HasBall => ball != null && ball.Holder == this;
         public PlayerIntent CurrentIntent => intent;
         public Vector3 Position => transform.position;
@@ -47,11 +46,19 @@ namespace Waterpulse.Gameplay
         void Update()
         {
             intent = brain != null ? brain.GetIntent() : PlayerIntent.None;
-            if (!HasBall) return;
+            if (recoverCooldownTimer > 0f) recoverCooldownTimer -= Time.deltaTime;
 
             // Las pulsaciones duran un frame: se ejecutan aquí y no en FixedUpdate
-            if (intent.Pass) ball.Pass(this, AimDirection());
-            else if (intent.Shoot) ball.Shoot(this, intent.Move);
+            if (HasBall)
+            {
+                if (intent.Pass) ball.Pass(this, AimDirection());
+                else if (intent.Shoot) ball.Shoot(this, intent.Move);
+            }
+            else if (intent.Pass && !IsGoalkeeper && CanTryRecover)
+            {
+                // J sin pelota: intentar recuperarla. Si falla, espera antes de poder repetir
+                if (ball.TryRecover(this) == RecoverResult.Failed) recoverCooldownTimer = config.recoverCooldown;
+            }
         }
 
         void FixedUpdate()

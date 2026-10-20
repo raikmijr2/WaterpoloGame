@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Waterpulse.AI;
 using Waterpulse.Brains;
 using Waterpulse.Config;
 using Waterpulse.Core;
@@ -20,6 +21,7 @@ namespace Waterpulse.EditorTools
         public const string RootDir = "Assets/_Waterpulse";
         public const string ScenePath = RootDir + "/Scenes/Match.unity";
         public const string ConfigPath = RootDir + "/Config/GameConfig.asset";
+        public const string DifficultyPath = RootDir + "/Config/Difficulty_Competidor.asset";
         const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -63,6 +65,7 @@ namespace Waterpulse.EditorTools
             // La escena nueva se crea ANTES de cargar assets: NewScene descarga los assets no usados
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var config = LoadOrCreateConfig();
+            var difficulty = LoadOrCreate<DifficultySO>(DifficultyPath);
             var mats = new Materials();
 
             BuildLight();
@@ -71,12 +74,12 @@ namespace Waterpulse.EditorTools
             BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
             var ball = BuildBall(config, mats, pool);
 
-            // Fase 3 (temporal): los rivales de campo no cogen la pelota hasta tener IA en la Fase 4
-            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, true);
-            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, false);
+            // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
+            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false));
+            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true));
 
             var score = BuildMatchSystems(config, ball, pool);
-            BuildHumanControl(ball, mats);
+            BuildHumanControl(config, ball, mats);
             BuildCamera(config, pool);
             BuildScoreboard(score);
 
@@ -85,14 +88,28 @@ namespace Waterpulse.EditorTools
             AssetDatabase.SaveAssets();
         }
 
-        static GameConfigSO LoadOrCreateConfig()
+        static GameConfigSO LoadOrCreateConfig() => LoadOrCreate<GameConfigSO>(ConfigPath);
+
+        // Solo crea el asset si no existe: nunca pisa los valores ajustados
+        static T LoadOrCreate<T>(string path) where T : ScriptableObject
         {
-            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(ConfigPath);
-            if (config != null) return config;
-            config = ScriptableObject.CreateInstance<GameConfigSO>();
-            AssetDatabase.CreateAsset(config, ConfigPath);
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null) return asset;
+            asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
-            return AssetDatabase.LoadAssetAtPath<GameConfigSO>(ConfigPath);
+            return AssetDatabase.LoadAssetAtPath<T>(path);
+        }
+
+        static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO difficulty, bool aggressive)
+        {
+            var go = new GameObject("TeamAI_" + team);
+            var teamAI = go.AddComponent<TeamAI>();
+            SetEnum(teamAI, "team", (int)team);
+            SetRef(teamAI, "ball", ball);
+            SetRef(teamAI, "difficulty", difficulty);
+            SetFlag(teamAI, "aggressive", aggressive);
+            return teamAI;
         }
 
         // ---------- Escena ----------
@@ -207,18 +224,18 @@ namespace Waterpulse.EditorTools
 
         // Un equipo: Atacant, Organitzador y Defensor con AIBrain, y el portero con GoalkeeperController
         static void BuildTeam(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, TeamSide team,
-                              Material cap, Material suit, bool fieldPlayersTakeBall)
+                              Material cap, Material suit, TeamAI teamAI)
         {
             var root = new GameObject("Team_" + team).transform;
             float sign = team.AttackSign();
             Vector3 facing = Vector3.right * sign;
 
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Attacker, StartPosition(pool, AttackerStart, sign), facing, cap, suit, fieldPlayersTakeBall);
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Playmaker, StartPosition(pool, PlaymakerStart, sign), facing, cap, suit, fieldPlayersTakeBall);
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Defender, StartPosition(pool, DefenderStart, sign), facing, cap, suit, fieldPlayersTakeBall);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Attacker, StartPosition(pool, AttackerStart, sign), facing, cap, suit, teamAI);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Playmaker, StartPosition(pool, PlaymakerStart, sign), facing, cap, suit, teamAI);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Defender, StartPosition(pool, DefenderStart, sign), facing, cap, suit, teamAI);
 
             Vector3 goalkeeper = pool.AttackedGoalCenter(team.Opponent()) + facing * c.goalkeeperDepth;
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Goalkeeper, goalkeeper, facing, mats.GoalkeeperCap, suit, true);
+            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Goalkeeper, goalkeeper, facing, mats.GoalkeeperCap, suit, null);
         }
 
         // Las posiciones del visitante son las del local reflejadas
@@ -228,7 +245,7 @@ namespace Waterpulse.EditorTools
         }
 
         static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, Transform parent, TeamSide team,
-                                PlayerRole role, Vector3 position, Vector3 facing, Material capMaterial, Material suitMaterial, bool canTakeBall)
+                                PlayerRole role, Vector3 position, Vector3 facing, Material capMaterial, Material suitMaterial, TeamAI teamAI)
         {
             var go = new GameObject($"{team}_{role}");
             go.transform.SetParent(parent, false);
@@ -245,7 +262,6 @@ namespace Waterpulse.EditorTools
             SetRef(controller, "ball", ball);
             SetEnum(controller, "team", (int)team);
             SetEnum(controller, "role", (int)role);
-            SetBool(controller, "canTakeBall", canTakeBall);
 
             // Cerebro por defecto: el portero tiene el suyo; los de campo, IA de colocación
             if (role == PlayerRole.Goalkeeper)
@@ -261,6 +277,7 @@ namespace Waterpulse.EditorTools
                 SetRef(brain, "config", c);
                 SetRef(brain, "ball", ball);
                 SetRef(brain, "pool", pool);
+                SetRef(brain, "teamAI", teamAI);
             }
 
             // Visual: cuerpo medio sumergido, bañador del equipo, gorro y "nariz" para ver hacia dónde mira
@@ -285,12 +302,13 @@ namespace Waterpulse.EditorTools
         }
 
         // Control humano estilo FIFA: un único HumanBrain que ControlSwitcher asigna al jugador con la pelota
-        static void BuildHumanControl(BallController ball, Materials mats)
+        static void BuildHumanControl(GameConfigSO c, BallController ball, Materials mats)
         {
             var go = new GameObject("HumanControl");
             var human = go.AddComponent<HumanBrain>();
             var switcher = go.AddComponent<ControlSwitcher>();
             var marker = Prim(PrimitiveType.Cylinder, "ControlMarker", null, new Vector3(0f, MarkerHeight, 0f), new Vector3(1.4f, 0.01f, 1.4f), mats.Marker, false, false);
+            SetRef(switcher, "config", c);
             SetRef(switcher, "human", human);
             SetRef(switcher, "ball", ball);
             SetRef(switcher, "marker", marker.transform);
@@ -375,21 +393,21 @@ namespace Waterpulse.EditorTools
             return go;
         }
 
+        static void SetFlag(Object target, string field, bool value)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null) { Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}"); return; }
+            prop.boolValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         static void SetEnum(Object target, string field, int value)
         {
             var so = new SerializedObject(target);
             var prop = so.FindProperty(field);
             if (prop == null) { Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}"); return; }
             prop.intValue = value;
-            so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        static void SetBool(Object target, string field, bool value)
-        {
-            var so = new SerializedObject(target);
-            var prop = so.FindProperty(field);
-            if (prop == null) { Debug.LogError($"[Waterpulse] Campo '{field}' no encontrado en {target.GetType().Name}"); return; }
-            prop.boolValue = value;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

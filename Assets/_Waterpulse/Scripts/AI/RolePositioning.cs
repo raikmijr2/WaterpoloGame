@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using Waterpulse.Config;
 using Waterpulse.Core;
@@ -6,7 +5,7 @@ using Waterpulse.Core;
 namespace Waterpulse.AI
 {
     // Dónde debe colocarse un jugador de campo según su rol, la pelota y la posesión (GDD sección 7).
-    // Cálculo puro: no mueve nada, solo devuelve el punto objetivo
+    // Cálculo puro: no mueve nada, solo devuelve el punto objetivo. A quién marca cada uno lo decide TeamAI
     public static class RolePositioning
     {
         public struct Pitch
@@ -16,8 +15,8 @@ namespace Waterpulse.AI
             public float HalfWidth;
         }
 
-        public static Vector3 TargetFor(PlayerRole role, TeamSide team, bool teamHasBall, Vector3 ball,
-                                        IReadOnlyList<Vector3> opponents, Pitch pitch, GameConfigSO cfg)
+        // Posición de formación por rol
+        public static Vector3 TargetFor(PlayerRole role, TeamSide team, bool teamHasBall, Vector3 ball, Pitch pitch, GameConfigSO cfg)
         {
             float sign = team.AttackSign();
             Vector2 offset = Offset(role, teamHasBall, cfg);
@@ -30,16 +29,18 @@ namespace Waterpulse.AI
                 pitch.Center.y,
                 pitch.Center.z + ballLateral * cfg.formationLateralFollow + towardCenter * offset.y);
 
-            // Sin posesión: marca al rival más cercano a su posición si está cerca
-            if (!teamHasBall && TryNearest(opponents, target, cfg.markRadius, out Vector3 rival))
-            {
-                Vector3 ownGoal = pitch.Center - Vector3.right * (sign * pitch.HalfLength);
-                Vector3 toGoal = ownGoal - rival;
-                toGoal.y = 0f;
-                target = rival + toGoal.normalized * cfg.markDistance;
-                target.y = pitch.Center.y;
-            }
+            return Clamp(target, sign, pitch, cfg);
+        }
 
+        // Posición de marcaje: entre el rival marcado y la portería propia
+        public static Vector3 MarkPosition(Vector3 rival, TeamSide team, Pitch pitch, GameConfigSO cfg)
+        {
+            float sign = team.AttackSign();
+            Vector3 ownGoal = pitch.Center - Vector3.right * (sign * pitch.HalfLength);
+            Vector3 toGoal = ownGoal - rival;
+            toGoal.y = 0f;
+            Vector3 target = rival + toGoal.normalized * cfg.markDistance;
+            target.y = pitch.Center.y;
             return Clamp(target, sign, pitch, cfg);
         }
 
@@ -51,23 +52,6 @@ namespace Waterpulse.AI
                 case PlayerRole.Playmaker: return teamHasBall ? cfg.playmakerWithBall : cfg.playmakerWithoutBall;
                 default: return teamHasBall ? cfg.defenderWithBall : cfg.defenderWithoutBall;
             }
-        }
-
-        static bool TryNearest(IReadOnlyList<Vector3> points, Vector3 from, float radius, out Vector3 nearest)
-        {
-            nearest = default;
-            float best = radius;
-            bool found = false;
-            foreach (var p in points)
-            {
-                float dx = p.x - from.x, dz = p.z - from.z;
-                float d = Mathf.Sqrt(dx * dx + dz * dz);
-                if (d > best) continue;
-                best = d;
-                nearest = p;
-                found = true;
-            }
-            return found;
         }
 
         // Dentro del campo, sin pegarse a las bandas ni a la línea propia, y sin acercarse demasiado a la portería rival

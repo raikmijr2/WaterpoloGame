@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using Waterpulse.Config;
 using Waterpulse.Core;
+using Waterpulse.Logic;
 
 namespace Waterpulse.Gameplay
 {
     public enum BallState { Free, Held, InFlight }
     public enum FlightKind { Pass, Shot }
+    public enum RecoverResult { OutOfRange, Failed, Success }
 
     // Pelota con estados explícitos: Free, Held(owner) e InFlight(Pass|Shot, from, target).
     // Es el único sistema que cambia el estado de la pelota
@@ -24,6 +26,8 @@ namespace Waterpulse.Gameplay
         readonly List<PlayerController> players = new List<PlayerController>();
         readonly List<PlayerController> candidates = new List<PlayerController>();
         readonly List<Vector3> candidatePositions = new List<Vector3>();
+        readonly HashSet<PlayerController> interceptRolled = new HashSet<PlayerController>();
+        float holderImmunityTimer;
         Vector3 flightStart;
         float flightDistance;
         PlayerController releaser;
@@ -69,6 +73,7 @@ namespace Waterpulse.Gameplay
         void FixedUpdate()
         {
             if (releaserTimer > 0f) releaserTimer -= Time.fixedDeltaTime;
+            if (holderImmunityTimer > 0f) holderImmunityTimer -= Time.fixedDeltaTime;
             if (IsFrozen) return;
 
             switch (State)
@@ -82,7 +87,7 @@ namespace Waterpulse.Gameplay
                     break;
                 case BallState.InFlight:
                     body.linearDamping = 0f;
-                    if (FlightKind == FlightKind.Pass && TryCatchPass()) break;
+                    if (FlightKind == FlightKind.Pass && (TryCatchPass() || TryIntercept())) break;
                     if (FlatDistance(flightStart, body.position) >= flightDistance) BecomeFree();
                     break;
             }
@@ -119,6 +124,23 @@ namespace Waterpulse.Gameplay
             Vector3 point = pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
             Launch(FlightKind.Shot, from, null, point, config.shotSpeed, ShotOvershoot);
             return true;
+        }
+
+        // J sin pelota: intento de quitársela al poseedor rival. A los porteros no se les puede quitar
+        public RecoverResult TryRecover(PlayerController thief)
+        {
+            if (State != BallState.Held || IsFrozen || Holder == null) return RecoverResult.OutOfRange;
+            if (Holder.Team == thief.Team || Holder.IsGoalkeeper) return RecoverResult.OutOfRange;
+
+            float distance = FlatDistance(thief.Position, Holder.Position);
+            if (distance > config.recoverRange) return RecoverResult.OutOfRange;
+            if (holderImmunityTimer > 0f) return RecoverResult.Failed;
+
+            float chance = RecoverOdds.Chance(distance, config.recoverCloseDistance, config.recoverRange,
+                                              config.recoverChanceClose, config.recoverChanceFar);
+            if (UnityEngine.Random.value >= chance) return RecoverResult.Failed;
+            GiveTo(thief);
+            return RecoverResult.Success;
         }
 
         // El portero ha ganado la tirada de parada: se queda la pelota
@@ -172,6 +194,7 @@ namespace Waterpulse.Gameplay
             SetHolder(null);
             State = BallState.InFlight;
             FlightId++;
+            interceptRolled.Clear();
             FlightKind = kind;
             FlightFrom = from;
             FlightTarget = target;
@@ -200,6 +223,7 @@ namespace Waterpulse.Gameplay
             FlightFrom = null;
             FlightTarget = null;
             LastToucher = player;
+            holderImmunityTimer = config.recoverImmunity;
             SetHolder(player);
 
             if (!hasPossessionTeam || possessionTeam != player.Team)
@@ -242,6 +266,23 @@ namespace Waterpulse.Gameplay
             return false;
         }
 
+        // Un rival cerca de la trayectoria puede quedársela: una tirada por rival y pase
+        bool TryIntercept()
+        {
+            var from = FlightFrom;
+            foreach (var p in players)
+            {
+                if (p.Team == from.Team || interceptRolled.Contains(p)) continue;
+                if (FlatDistance(p.Position, body.position) > config.interceptRadius) continue;
+                interceptRolled.Add(p);
+                if (UnityEngine.Random.value >= config.interceptChance) continue;
+                GiveTo(p);
+                GameEvents.RaiseInterception(p.gameObject, from.gameObject);
+                return true;
+            }
+            return false;
+        }
+
         void CompletePass(PlayerController from, PlayerController to)
         {
             GiveTo(to);
@@ -268,7 +309,6 @@ namespace Waterpulse.Gameplay
 
         bool CanTouch(PlayerController p)
         {
-            if (!p.CanTakeBall) return false;
             if (p == releaser && releaserTimer > 0f) return false;
             return FlatDistance(p.Position, body.position) <= config.pickupRadius;
         }
