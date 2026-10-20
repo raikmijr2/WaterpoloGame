@@ -72,6 +72,7 @@ namespace Waterpulse.Brains
             if (Controlled != null) Controlled.ResetBrain();
             Controlled = player;
             player.SetBrain(human);
+            GameEvents.RaiseControlledPlayerChanged(player.gameObject);
             switchCooldown = config.autoSwitchCooldown;
         }
 

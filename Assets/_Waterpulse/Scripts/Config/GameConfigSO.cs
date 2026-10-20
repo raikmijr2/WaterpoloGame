@@ -129,6 +129,8 @@ namespace Waterpulse.Config
         public float aiAdvanceDistance = 5f;
         [Tooltip("Distancia del presionador al poseedor, del lado de su portería (m)")]
         public float aiPressDistance = 0.8f;
+        [Tooltip("La IA usa el acelerón (Torpede Blau) para llegar a una pelota suelta más lejos que esto (m)")]
+        public float aiBoostDistance = 6f;
 
         [Header("IA: movimiento")]
         [Tooltip("A esta distancia del objetivo se considera que ha llegado (m)")]
@@ -154,6 +156,8 @@ namespace Waterpulse.Config
         [Header("Textos visibles (catalán)")]
         public string homeTeamName = "LOCAL";
         public string awayTeamName = "VISITANT";
+        [Tooltip("Tiempo que se ve en pantalla el nombre de una habilidad al activarse (s)")]
+        public float abilityAnnounceDuration = 1f;
 
         [Header("Piscina (requiere regenerar la escena)")]
         [Tooltip("Largo del campo, de portería a portería (m)")]

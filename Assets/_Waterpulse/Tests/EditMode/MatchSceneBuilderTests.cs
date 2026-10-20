@@ -2,6 +2,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Waterpulse.Abilities;
 using Waterpulse.AI;
 using Waterpulse.Brains;
 using Waterpulse.Config;
@@ -153,6 +154,40 @@ namespace Waterpulse.Tests.EditMode
                 Assert.AreEqual(expected.x, p.transform.position.x, 1e-3f, p.name);
                 Assert.AreEqual(expected.z, p.transform.position.z, 1e-3f, p.name);
             }
+        }
+
+        [Test]
+        public void Build_AssignsAbilitiesByRole()
+        {
+            MatchSceneBuilder.Build();
+
+            var energyConfig = AssetDatabase.LoadAssetAtPath<EnergyConfigSO>(MatchSceneBuilder.EnergyConfigPath);
+            var xut = AssetDatabase.LoadAssetAtPath<AbilityDefinitionSO>(MatchSceneBuilder.XutTragolPath);
+            var torpede = AssetDatabase.LoadAssetAtPath<AbilityDefinitionSO>(MatchSceneBuilder.TorpedeBlauPath);
+            Assert.IsNotNull(energyConfig, "EnergyConfig");
+            Assert.AreEqual(AbilityKind.PowerShot, xut.kind);
+            Assert.AreEqual(AbilityKind.Boost, torpede.kind);
+
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                if (p.IsGoalkeeper)
+                {
+                    Assert.IsNull(p.Ability, p.name);
+                    Assert.IsNull(p.GetComponent<AbilityBehaviour>(), p.name);
+                    continue;
+                }
+
+                var energy = p.GetComponent<PlayerEnergy>();
+                Assert.IsNotNull(energy, p.name);
+                AssertRef(energy, "config", energyConfig);
+
+                bool attacker = p.Role == PlayerRole.Attacker;
+                Assert.AreEqual(attacker ? xut : torpede, p.Ability, p.name);
+                Assert.AreEqual(attacker, p.GetComponent<XutTragolAbility>() != null, p.name + " Xut");
+                Assert.AreEqual(!attacker, p.GetComponent<TorpedeBlauAbility>() != null, p.name + " Torpede");
+            }
+
+            Assert.AreEqual(1, Object.FindObjectsByType<EnergyRewards>(FindObjectsSortMode.None).Length, "EnergyRewards");
         }
 
         static void AssertRef(Object target, string field, Object expected)

@@ -108,7 +108,7 @@ namespace Waterpulse.Gameplay
 
             rolledFlightId = ball.FlightId;
             float distance = Flat(ball.Position - self.Position).magnitude;
-            float chance = SaveOdds.Chance(distance, config.playerRadius, config.saveReach, config.saveChanceAtBody);
+            float chance = SaveOdds.Chance(distance, config.playerRadius, ball.ShotSaveReach, config.saveChanceAtBody);
             if (Random.value < chance && ball.CatchByGoalkeeper(self)) GameEvents.RaiseSave(gameObject);
         }
 

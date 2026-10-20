@@ -48,6 +48,10 @@ namespace Waterpulse.Gameplay
         // Identificador del vuelo actual (cambia en cada pase o tiro)
         public int FlightId { get; private set; }
 
+        // Tiro en vuelo: si es especial (habilidad) y a qué distancia del portero su parada llega a 0
+        public bool IsSpecialShot { get; private set; }
+        public float ShotSaveReach { get; private set; }
+
         // Equipo que tuvo la pelota por última vez (se mantiene mientras está libre o en vuelo)
         public bool HasPossession(TeamSide team) => hasPossessionTeam && possessionTeam == team;
 
@@ -115,14 +119,19 @@ namespace Waterpulse.Gameplay
             return true;
         }
 
-        public bool Shoot(PlayerController from, Vector2 stick)
+        public bool Shoot(PlayerController from, Vector2 stick) => Shoot(from, stick, 1f, config.saveReach, false);
+
+        // Tiro con parámetros propios (lo usa el Xut del Tràngol): más rápido y con menos alcance de parada
+        public bool Shoot(PlayerController from, Vector2 stick, float speedMultiplier, float saveReach, bool special)
         {
             if (Holder != from || IsFrozen) return false;
 
             // Sin stick al centro; con stick arriba/abajo hacia ese palo
             float lateral = Mathf.Clamp(stick.y, -1f, 1f) * (config.goalWidth * 0.5f - config.shotPostMargin);
             Vector3 point = pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
-            Launch(FlightKind.Shot, from, null, point, config.shotSpeed, ShotOvershoot);
+            Launch(FlightKind.Shot, from, null, point, config.shotSpeed * speedMultiplier, ShotOvershoot);
+            IsSpecialShot = special;
+            ShotSaveReach = saveReach;
             return true;
         }
 
@@ -140,6 +149,7 @@ namespace Waterpulse.Gameplay
                                               config.recoverChanceClose, config.recoverChanceFar);
             if (UnityEngine.Random.value >= chance) return RecoverResult.Failed;
             GiveTo(thief);
+            GameEvents.RaiseBallRecovered(thief.gameObject);
             return RecoverResult.Success;
         }
 
@@ -194,6 +204,8 @@ namespace Waterpulse.Gameplay
             SetHolder(null);
             State = BallState.InFlight;
             FlightId++;
+            IsSpecialShot = false;
+            ShotSaveReach = config.saveReach;
             interceptRolled.Clear();
             FlightKind = kind;
             FlightFrom = from;

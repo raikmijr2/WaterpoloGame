@@ -25,6 +25,7 @@ namespace Waterpulse.Brains
         const float PassAimMagnitude = 0.25f;
 
         PlayerController self;
+        PlayerEnergy energy;
         readonly List<PlayerController> teammates = new List<PlayerController>();
         readonly List<PlayerController> fieldOpponents = new List<PlayerController>();
         readonly List<PlayerController> allOpponents = new List<PlayerController>();
@@ -40,7 +41,19 @@ namespace Waterpulse.Brains
         float SpeedScale => Aggressive ? teamAI.Difficulty.rivalSpeedMultiplier : 1f;
         float ReactionTime => teamAI != null ? teamAI.Difficulty.reactionTime : 0f;
 
-        void Awake() => self = GetComponent<PlayerController>();
+        void Awake()
+        {
+            self = GetComponent<PlayerController>();
+            energy = GetComponent<PlayerEnergy>();
+        }
+
+        // La IA rival usa su habilidad si la dificultad lo permite, es del tipo pedido y tiene energía
+        bool CanUseAbility(AbilityKind kind)
+        {
+            var ability = self.Ability;
+            return Aggressive && teamAI.Difficulty.useAbilities && ability != null && ability.kind == kind
+                   && energy != null && energy.CanSpend(ability.cost);
+        }
 
         void Start()
         {
@@ -67,7 +80,7 @@ namespace Waterpulse.Brains
             {
                 // Persecución, corte y presión a máxima velocidad: si frenaran al llegar, no alcanzarían a nadie
                 if (self.HasBall) return Attack(decide);
-                if (teamAI.Chaser == self && ball.State == BallState.Free) return Go(State.Chase, ball.Position, true);
+                if (teamAI.Chaser == self && ball.State == BallState.Free) return Chase();
                 if (teamAI.Interceptor == self && ball.State == BallState.InFlight) return Go(State.Intercept, teamAI.InterceptPoint, true);
                 if (teamAI.Presser == self && ball.Holder != null) return Press(decide);
             }
@@ -101,7 +114,9 @@ namespace Waterpulse.Brains
                 {
                     // Apunta a un palo al azar: el eje Y del stick elige el palo
                     float post = Random.value < 0.5f ? -1f : 1f;
-                    return new PlayerIntent { Move = new Vector2(0f, post), Shoot = true };
+                    // Si iba a tirar y tiene energía, usa el Xut del Tràngol en vez del tiro normal
+                    bool power = CanUseAbility(AbilityKind.PowerShot);
+                    return new PlayerIntent { Move = new Vector2(0f, post), Shoot = !power, Ability = power };
                 }
                 if (choice.Action == AttackAction.Pass)
                 {
@@ -117,6 +132,16 @@ namespace Waterpulse.Brains
         }
 
         // ---------- Sin pelota ----------
+
+        // A por la pelota suelta; si está lejos, usa el Torpede Blau para llegar antes
+        PlayerIntent Chase()
+        {
+            PlayerIntent intent = Go(State.Chase, ball.Position, true);
+            float distance = Flat(ball.Position - self.Position).magnitude;
+            if (distance > config.aiBoostDistance && !self.IsBoosting && CanUseAbility(AbilityKind.Boost))
+                intent.Ability = true;
+            return intent;
+        }
 
         // Se coloca entre el poseedor y su portería y, según la agresividad, intenta recuperar con J
         PlayerIntent Press(bool decide)

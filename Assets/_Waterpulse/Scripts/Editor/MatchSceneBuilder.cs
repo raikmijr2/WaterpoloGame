@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+using Waterpulse.Abilities;
 using Waterpulse.AI;
 using Waterpulse.Brains;
 using Waterpulse.Config;
@@ -24,6 +25,9 @@ namespace Waterpulse.EditorTools
         public const string ScenePath = RootDir + "/Scenes/Match.unity";
         public const string ConfigPath = RootDir + "/Config/GameConfig.asset";
         public const string DifficultyPath = RootDir + "/Config/Difficulty_Competidor.asset";
+        public const string EnergyConfigPath = RootDir + "/Config/EnergyConfig.asset";
+        public const string XutTragolPath = RootDir + "/Config/Ability_XutTragol.asset";
+        public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
         const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -41,6 +45,20 @@ namespace Waterpulse.EditorTools
         const float PlayerHeight = 1.2f;
         const float MarkerHeight = 0.02f;
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
+
+        // Efectos visuales de las habilidades (solo aspecto, no afectan a la jugabilidad)
+        const float BallTrailTime = 0.35f;
+        const float BallTrailWidth = 0.3f;
+        const float PlayerTrailTime = 0.5f;
+        const float PlayerTrailWidth = 0.7f;
+        const float SplashDuration = 0.5f;
+        const float SplashLifetime = 0.6f;
+        const float SplashSpeed = 3f;
+        const float SplashSize = 0.15f;
+        const float SplashGravity = 0.6f;
+        const float SplashConeAngle = 35f;
+        const float SplashRadius = 0.3f;
+        const short SplashParticles = 30;
         const string PhysicsDir = RootDir + "/Art/Physics";
 
 
@@ -71,11 +89,19 @@ namespace Waterpulse.EditorTools
             BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
             var ball = BuildBall(config, mats, pool);
 
-            // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
-            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false));
-            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true));
+            var abilities = new AbilitySetup
+            {
+                Energy = LoadOrCreate<EnergyConfigSO>(EnergyConfigPath),
+                XutTragol = LoadOrCreate<AbilityDefinitionSO>(XutTragolPath, InitXutTragol),
+                TorpedeBlau = LoadOrCreate<AbilityDefinitionSO>(TorpedeBlauPath, InitTorpedeBlau),
+                BallTrail = ball.GetComponent<TrailRenderer>(),
+            };
 
-            var flow = BuildMatchSystems(config, ball, pool);
+            // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
+            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false), abilities);
+            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true), abilities);
+
+            var flow = BuildMatchSystems(config, ball, pool, abilities.Energy);
             BuildHumanControl(config, ball, mats);
             BuildCamera(config, pool);
             BuildHud(config, flow);
@@ -87,15 +113,45 @@ namespace Waterpulse.EditorTools
 
         static GameConfigSO LoadOrCreateConfig() => LoadOrCreate<GameConfigSO>(ConfigPath);
 
-        // Solo crea el asset si no existe: nunca pisa los valores ajustados
-        static T LoadOrCreate<T>(string path) where T : ScriptableObject
+        // Solo crea el asset si no existe: nunca pisa los valores ajustados.
+        // "init" pone los valores por defecto propios de ese asset (solo al crearlo)
+        static T LoadOrCreate<T>(string path, System.Action<T> init = null) where T : ScriptableObject
         {
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset != null) return asset;
             asset = ScriptableObject.CreateInstance<T>();
+            init?.Invoke(asset);
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             return AssetDatabase.LoadAssetAtPath<T>(path);
+        }
+
+        // Valores del GDD: Xut del Tràngol, 35 de energía, tiro muy potente que el portero solo para si lo anticipa
+        static void InitXutTragol(AbilityDefinitionSO a)
+        {
+            a.kind = AbilityKind.PowerShot;
+            a.displayName = "Xut del Tràngol";
+            a.cost = 35f;
+            a.power = 1.6f;
+            a.goalkeeperReach = 0.6f;
+        }
+
+        // Valores del GDD: Torpede Blau, 25 de energía, acelerón de ~1 s
+        static void InitTorpedeBlau(AbilityDefinitionSO a)
+        {
+            a.kind = AbilityKind.Boost;
+            a.displayName = "Torpede Blau";
+            a.cost = 25f;
+            a.power = 2f;
+            a.duration = 1f;
+        }
+
+        class AbilitySetup
+        {
+            public EnergyConfigSO Energy;
+            public AbilityDefinitionSO XutTragol;
+            public AbilityDefinitionSO TorpedeBlau;
+            public TrailRenderer BallTrail;
         }
 
         static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO difficulty, bool aggressive)
@@ -216,12 +272,62 @@ namespace Waterpulse.EditorTools
             var ball = go.AddComponent<BallController>();
             SetRef(ball, "config", c);
             SetRef(ball, "pool", pool);
+
+            // Estela del Xut del Tràngol (apagada hasta que se usa la habilidad)
+            AddTrail(go, mats.Trail, BallTrailTime, BallTrailWidth, new Color(1f, 0.6f, 0.1f));
             return ball;
+        }
+
+        static TrailRenderer AddTrail(GameObject go, Material material, float time, float width, Color color)
+        {
+            var trail = go.AddComponent<TrailRenderer>();
+            trail.sharedMaterial = material;
+            trail.time = time;
+            trail.startWidth = width;
+            trail.endWidth = 0f;
+            trail.startColor = color;
+            trail.endColor = new Color(color.r, color.g, color.b, 0f);
+            trail.shadowCastingMode = ShadowCastingMode.Off;
+            trail.emitting = false;
+            return trail;
+        }
+
+        // Salpicadura: ráfaga de gotas hacia arriba que se lanza al activar una habilidad
+        static ParticleSystem AddSplash(Transform parent, Material material)
+        {
+            var go = new GameObject("Splash");
+            go.transform.SetParent(parent, false);
+            go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // el cono emite hacia arriba
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = ps.main;
+            main.duration = SplashDuration;
+            main.loop = false;
+            main.playOnAwake = false;
+            main.startLifetime = SplashLifetime;
+            main.startSpeed = SplashSpeed;
+            main.startSize = SplashSize;
+            main.startColor = new Color(0.75f, 0.9f, 1f, 0.9f);
+            main.gravityModifier = SplashGravity;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, SplashParticles) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = SplashConeAngle;
+            shape.radius = SplashRadius;
+
+            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = material;
+            return ps;
         }
 
         // Un equipo: Atacant, Organitzador y Defensor con AIBrain, y el portero con GoalkeeperController
         static void BuildTeam(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, TeamSide team,
-                              Material cap, Material suit, TeamAI teamAI)
+                              Material cap, Material suit, TeamAI teamAI, AbilitySetup abilities)
         {
             var root = new GameObject("Team_" + team).transform;
             foreach (var role in new[] { PlayerRole.Attacker, PlayerRole.Playmaker, PlayerRole.Defender, PlayerRole.Goalkeeper })
@@ -229,12 +335,13 @@ namespace Waterpulse.EditorTools
                 // Aparecen en su posición de saque (la misma que usa MatchFlow)
                 Vector3 position = KickoffLayout.Position(role, team, pool.Center, pool.HalfLength, c);
                 bool keeper = role == PlayerRole.Goalkeeper;
-                BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
-                            keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
+                var player = BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
+                                         keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
+                if (!keeper) AddAbility(player, role, abilities, mats);   // los porteros no tienen habilidad en el prototipo
             }
         }
 
-        static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, Transform parent, TeamSide team,
+        static GameObject BuildPlayer(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, Transform parent, TeamSide team,
                                 PlayerRole role, Vector3 position, Vector3 facing, Material capMaterial, Material suitMaterial, TeamAI teamAI)
         {
             var go = new GameObject($"{team}_{role}");
@@ -278,15 +385,42 @@ namespace Waterpulse.EditorTools
             Prim(PrimitiveType.Cylinder, "Suit", visual, Vector3.zero, new Vector3(d * 1.05f, SuitHeight, d * 1.05f), suitMaterial, false);
             Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, capMaterial, false);
             Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
+            return go;
         }
 
-        static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool)
+        // Energía y habilidad de un jugador de campo: Atacant → Xut del Tràngol; Organitzador y Defensor → Torpede Blau
+        static void AddAbility(GameObject go, PlayerRole role, AbilitySetup setup, Materials mats)
+        {
+            var energy = go.AddComponent<PlayerEnergy>();
+            SetRef(energy, "config", setup.Energy);
+
+            var splash = AddSplash(go.transform, mats.Splash);
+            var controller = go.GetComponent<PlayerController>();
+            if (role == PlayerRole.Attacker)
+            {
+                SetRef(controller, "ability", setup.XutTragol);
+                var xut = go.AddComponent<XutTragolAbility>();
+                SetRef(xut, "splash", splash);
+                SetRef(xut, "ballTrail", setup.BallTrail);
+            }
+            else
+            {
+                SetRef(controller, "ability", setup.TorpedeBlau);
+                var torpede = go.AddComponent<TorpedeBlauAbility>();
+                SetRef(torpede, "splash", splash);
+                SetRef(torpede, "trail", AddTrail(go, mats.Trail, PlayerTrailTime, PlayerTrailWidth, new Color(0.3f, 0.7f, 1f)));
+            }
+        }
+
+        static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool, EnergyConfigSO energy)
         {
             var go = new GameObject("Match");
             var flow = go.AddComponent<MatchFlow>();
             SetRef(flow, "config", c);
             SetRef(flow, "ball", ball);
             SetRef(flow, "pool", pool);
+            var rewards = go.AddComponent<EnergyRewards>();
+            SetRef(rewards, "config", energy);
             return flow;
         }
 
@@ -324,6 +458,16 @@ namespace Waterpulse.EditorTools
             SetRef(scoreboard, "match", flow);
             SetRef(scoreboard, "scoreLabel", score);
             SetRef(scoreboard, "messageLabel", message);
+
+            // Nombre de la habilidad al activarse y energía del jugador controlado (provisional hasta la Fase 8)
+            var announce = Label(root, "AbilityName", 72, new Vector2(0.5f, 0.75f), Vector2.zero, new Vector2(1400f, 120f));
+            announce.color = new Color(1f, 0.85f, 0.2f);
+            var announcer = canvasGo.AddComponent<AbilityAnnouncer>();
+            SetRef(announcer, "config", c);
+            SetRef(announcer, "label", announce);
+            var energyText = Label(root, "Energy", 40, Vector2.zero, new Vector2(220f, 50f), new Vector2(400f, 60f));
+            var energyReadout = canvasGo.AddComponent<EnergyReadout>();
+            SetRef(energyReadout, "label", energyText);
 
             // Pantalla final (se activa en Results)
             var panel = new GameObject("ResultsPanel", typeof(RectTransform), typeof(Image));
@@ -471,7 +615,7 @@ namespace Waterpulse.EditorTools
         class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
-            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Marker;
+            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Marker, Trail, Splash;
 
             public Materials()
             {
@@ -491,6 +635,8 @@ namespace Waterpulse.EditorTools
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
                 Marker = Lit("ControlMarker", new Color(0.3f, 1f, 0.4f));
+                Trail = Unlit("Trail", "Sprites/Default");
+                Splash = Unlit("Splash", "Universal Render Pipeline/Particles/Unlit");
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
             }
 
@@ -516,6 +662,25 @@ namespace Waterpulse.EditorTools
                     m.SetOverrideTag("RenderType", "Transparent");
                     m.renderQueue = (int)RenderQueue.Transparent;
                     m.SetShaderPassEnabled("ShadowCaster", false);
+                }
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+
+            // Material sin iluminación que respeta el color por vértice (estelas y partículas)
+            static Material Unlit(string name, string shaderName)
+            {
+                string path = $"{MaterialDir}/{name}.mat";
+                var shader = Shader.Find(shaderName) ?? Shader.Find("Sprites/Default");
+                var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (m == null)
+                {
+                    m = new Material(shader);
+                    AssetDatabase.CreateAsset(m, path);
+                }
+                else if (m.shader != shader)
+                {
+                    m.shader = shader;
                 }
                 EditorUtility.SetDirty(m);
                 return m;

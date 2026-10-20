@@ -14,5 +14,7 @@ namespace Waterpulse.Config
         [Range(0f, 1f)] public float aggressiveness = 0.6f;
         [Tooltip("Velocidad de los rivales respecto a la máxima (0-1)")]
         [Range(0.1f, 1f)] public float rivalSpeedMultiplier = 1f;
+        [Tooltip("La IA rival usa habilidades especiales (GDD: nivel Competidor)")]
+        public bool useAbilities = true;
     }
 }

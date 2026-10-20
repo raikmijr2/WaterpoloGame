@@ -4,7 +4,8 @@ using Waterpulse.Core;
 
 namespace Waterpulse.Gameplay
 {
-    // Ejecuta las intenciones de su IPlayerBrain (humano o IA): nadar, pasar y tirar. No sabe quién lo controla
+    // Ejecuta las intenciones de su IPlayerBrain (humano o IA): nadar, pasar, tirar y pedir su habilidad.
+    // No sabe quién lo controla ni cómo funciona la habilidad: solo avisa con AbilityRequested
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerController : MonoBehaviour
     {
@@ -12,6 +13,8 @@ namespace Waterpulse.Gameplay
         [SerializeField] TeamSide team;
         [SerializeField] PlayerRole role;
         [SerializeField] BallController ball;
+        [Tooltip("Habilidad especial del jugador (vacío = sin habilidad)")]
+        [SerializeField] AbilityDefinitionSO ability;
 
         Rigidbody body;
         IPlayerBrain defaultBrain;
@@ -19,12 +22,21 @@ namespace Waterpulse.Gameplay
         PlayerIntent intent;
         float recoverCooldownTimer;
         bool canAct = true;   // solo se obedece al cerebro mientras se juega (no en saques, goles ni final)
+        float boostTimer;
+        Vector3 boostDirection;
+        float boostMultiplier;
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
+        public AbilityDefinitionSO Ability => ability;
+        public BallController Ball => ball;
         public bool IsGoalkeeper => role == PlayerRole.Goalkeeper;
+        public bool IsBoosting => boostTimer > 0f;
         public bool CanTryRecover => recoverCooldownTimer <= 0f;
         public bool HasBall => ball != null && ball.Holder == this;
+
+        // El jugador ha pulsado la habilidad (L). Lo ejecuta el componente de habilidad que tenga
+        public event System.Action AbilityRequested;
         public PlayerIntent CurrentIntent => intent;
         public Vector3 Position => transform.position;
         public Vector3 Forward => transform.forward;
@@ -42,7 +54,11 @@ namespace Waterpulse.Gameplay
 
         void OnEnable() => GameEvents.MatchStateChanged += OnMatchStateChanged;
         void OnDisable() => GameEvents.MatchStateChanged -= OnMatchStateChanged;
-        void OnMatchStateChanged(MatchState state) => canAct = state == MatchState.Playing;
+        void OnMatchStateChanged(MatchState state)
+        {
+            canAct = state == MatchState.Playing;
+            if (!canAct) boostTimer = 0f;
+        }
 
         // Asigna un cerebro externo (p. ej. el del humano). ResetBrain vuelve al propio del jugador
         public void SetBrain(IPlayerBrain newBrain) => brain = newBrain;
@@ -54,6 +70,7 @@ namespace Waterpulse.Gameplay
             if (recoverCooldownTimer > 0f) recoverCooldownTimer -= Time.deltaTime;
 
             // Las pulsaciones duran un frame: se ejecutan aquí y no en FixedUpdate
+            if (intent.Ability) AbilityRequested?.Invoke();
             if (HasBall)
             {
                 if (intent.Pass) ball.Pass(this, AimDirection());
@@ -68,6 +85,17 @@ namespace Waterpulse.Gameplay
 
         void FixedUpdate()
         {
+            if (boostTimer > 0f)
+            {
+                // Acelerón: dirección fija, no se puede girar hasta que acaba
+                boostTimer -= Time.fixedDeltaTime;
+                body.linearDamping = 0f;
+                body.linearVelocity = boostDirection * (config.maxSpeed * boostMultiplier);
+                body.MoveRotation(Quaternion.LookRotation(boostDirection));
+                body.angularVelocity = Vector3.zero;
+                return;
+            }
+
             Vector2 move = Vector2.ClampMagnitude(intent.Move, 1f);
             Vector3 direction = new Vector3(move.x, 0f, move.y);
             bool hasInput = direction.sqrMagnitude > 0.0001f;
@@ -89,8 +117,18 @@ namespace Waterpulse.Gameplay
             body.angularVelocity = Vector3.zero;
         }
 
+        // Acelerón temporal en una dirección fija (lo usa el Torpede Blau)
+        public void StartBoost(Vector3 direction, float speedMultiplier, float duration)
+        {
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.0001f) return;
+            boostDirection = direction.normalized;
+            boostMultiplier = speedMultiplier;
+            boostTimer = duration;
+        }
+
         // Dirección del stick; sin stick, hacia donde mira
-        Vector3 AimDirection()
+        public Vector3 AimDirection()
         {
             Vector3 aim = new Vector3(intent.Move.x, 0f, intent.Move.y);
             return aim.sqrMagnitude > 0.04f ? aim.normalized : new Vector3(Forward.x, 0f, Forward.z).normalized;
@@ -101,6 +139,7 @@ namespace Waterpulse.Gameplay
         {
             facing.y = 0f;
             Quaternion rotation = facing.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(facing) : transform.rotation;
+            boostTimer = 0f;
             body.linearVelocity = Vector3.zero;
             body.position = position;
             body.rotation = rotation;
