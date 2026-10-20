@@ -136,9 +136,24 @@ namespace Waterpulse.Config
         [Tooltip("Empieza a frenar a esta distancia del objetivo (m)")]
         public float aiSlowRadius = 2f;
 
-        [Header("Reanudación tras gol")]
-        [Tooltip("Pausa entre el gol y la reanudación desde el centro (s)")]
+        [Header("Flujo de partido")]
+        [Tooltip("Duración del partido (s). El GDD pide entre 120 y 180. Si hay empate al acabar, gol de oro")]
+        public float matchDuration = 150f;
+        [Tooltip("Tiempo quieto en el saque antes de empezar a jugar (s)")]
+        public float kickoffDelay = 1.5f;
+        [Tooltip("Pausa entre el gol y el siguiente saque (s)")]
         public float goalRestartDelay = 1.5f;
+        [Tooltip("Pausa entre el final del tiempo y la pantalla de resultados (s)")]
+        public float fullTimeDelay = 1.5f;
+
+        [Header("Posiciones de saque (x = avance hacia la portería rival, y = lateral; el visitante se refleja)")]
+        public Vector2 attackerKickoff = new Vector2(-1.5f, 2f);
+        public Vector2 playmakerKickoff = new Vector2(-4f, -2.5f);
+        public Vector2 defenderKickoff = new Vector2(-7f, 0f);
+
+        [Header("Textos visibles (catalán)")]
+        public string homeTeamName = "LOCAL";
+        public string awayTeamName = "VISITANT";
 
         [Header("Piscina (requiere regenerar la escena)")]
         [Tooltip("Largo del campo, de portería a portería (m)")]

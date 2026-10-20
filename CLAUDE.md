@@ -32,7 +32,7 @@ Juego de waterpolo arcade en **Unity 6** con build **Web** (PC, móvil y tablet)
 - **Física:** `Rigidbody` (3D) con `useGravity = false`, posición Y y rotaciones X/Z congeladas, y `linearDamping` configurable para la sensación de agua. `PlayerIntent.Move` (Vector2) se aplica en el plano XZ. No se simula el agua.
 - **Assembly Definitions:** una por carpeta de scripts. `Logic` no depende de nada del juego; `Gameplay` depende de `Logic`, `Config` y `Core`.
   - `IPlayerBrain` y `PlayerIntent` viven en `Core` (no en `Brains`) para evitar la dependencia circular Gameplay ↔ Brains. `Brains` contiene las implementaciones (`HumanBrain`, `AIBrain`).
-  - Dependencias: `Logic` → nada · `Config` → nada · `Core` → Config · `Gameplay` → Logic, Config, Core · `AI` → Core, Config, Gameplay · `Brains` → Core, Config, Gameplay, AI, InputSystem · `Abilities` → Core, Config, Logic, Gameplay · `UI` → Core, Config, Logic, Gameplay, InputSystem, uGUI · `Audio` → Core, Config · `Editor` → todas (solo editor) · `Tests.EditMode` → Logic, Config, Gameplay, Editor (para testear los generadores).
+  - Dependencias: `Logic` → nada · `Config` → nada · `Core` → Config · `Gameplay` → Logic, Config, Core · `AI` → Core, Config, Gameplay · `Brains` → Core, Config, Gameplay, AI, InputSystem · `Abilities` → Core, Config, Logic, Gameplay · `UI` → Core, Config, Logic, Gameplay, InputSystem, uGUI · `Audio` → Core, Config · `Editor` → todas (solo editor) · `Tests.EditMode` → todas las anteriores (incluido Editor, para testear los generadores).
   - El namespace de `Scripts/Editor/` es `Waterpulse.EditorTools` (un namespace `...Editor` taparía la clase `UnityEditor.Editor`).
 - **Rendimiento Web:** nada de reflexión pesada, threads ni APIs no soportadas en WebGL.
 
@@ -81,8 +81,8 @@ Assets/_Waterpulse/
 - [x] Reanudación tras gol → la pelota vuelve al centro y la recibe el equipo que ha encajado (su jugador de campo más cercano al centro).
 - [x] Balón fuera de la piscina → no puede salir: rebota en las paredes.
 - [ ] Límite de tiempo de posesión para tirar
-- [ ] Empate al final (gol de oro, prórroga o empate válido)
-- [ ] Duración exacta del partido
+- [x] Empate al final → gol de oro: se sigue jugando y gana quien marque primero.
+- [x] Duración exacta del partido → 150 s (2:30), configurable. El reloj solo corre durante el juego (se para en goles y saques).
 
 ---
 
@@ -157,9 +157,11 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 5 — EN CURSO**
-- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3, Fase 4
+- Fase actual: **Fase 6 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3, Fase 4, Fase 5
 - Notas:
+  - Pendiente para el final (Fase 10): el usuario ha visto cosas a mejorar tras la Fase 5 y prefiere tratarlas al final. Pedirle la lista al llegar a la Fase 10.
+  - Fase 5 (aprobado): `MatchStateMachine` y `MatchTimer` puros en Core; `MatchFlow` (Gameplay) los conecta con la escena y sustituye a `GoalRestart` y `MatchScore`. Primer saque del local; tras gol saca quien encaja. En cada saque todos vuelven a su posición (`KickoffLayout`, valores en config) y se quedan quietos 1,5 s ("Preparats…"); "GOL!" 1,5 s; "Final del partit" 1,5 s antes de la pantalla final. Los jugadores solo obedecen a su cerebro en `Playing`. Pantalla final básica con resultado, ganador y "Tornar a jugar" (botón o J/Enter), que recarga la escena. Nombres de equipo en config ("LOCAL", "VISITANT").
   - Fase 4 (aprobado): al defender, el control salta al jugador de campo propio más cercano a la pelota (margen 1,5 m, espera 0,5 s). Recuperar con J: alcance 1,2 m, 50 % al límite y 75 % pegado, 0,8 s de espera si falla. Intercepción automática: 40 % si el pase pasa a menos de 0,8 m de un rival (una tirada por rival y pase); los tiros no se interceptan. Los compañeros del humano solo se colocan y marcan. IA rival: avanza, pasa si la presionan (a menos de 1,5 m) y tira a menos de 6 m con la línea libre, a un palo al azar. Dificultad única "Competidor" (`DifficultySO`), sin habilidades.
   - Fase 4 (añadido y validado): tras ganar la pelota hay 0,5 s en los que no te la pueden quitar (`recoverImmunity`, 0 = desactivado), para evitar robos en cadena; y a los porteros no se les puede quitar la pelota.
   - Fase 4: desaparece la restricción temporal `canTakeBall` de la Fase 3.
@@ -167,7 +169,7 @@ Assets/_Waterpulse/
   - Fase 3 (aprobado): gorros local azul, visitante blanco, porteros rojo; bañador del color del equipo. Parada por probabilidad (`SaveOdds`): 80 % al cuerpo, 0 % a 1,2 m; el portero ya no bloquea físicamente. Tras parar, saca al compañero libre más cercano a ~1 s. Colocación por rol según GDD sección 7 (con posesión se abren; sin posesión defienden y marcan al rival cercano). Las diferencias de estadísticas por rol se dejan para la Fase 10; los roles aún no se distinguen visualmente (pendiente de arte).
   - Decisión: **control estilo FIFA**. El humano controla siempre al jugador de su equipo que tiene la pelota: al pasar, el control pasa al receptor. Prevalece sobre la sección 6 del GDD ("controla un sol personatge"). Al defender, el control salta automáticamente al más cercano a la pelota (ver Fase 4).
   - Fase 2 (aprobado): el local ataca hacia +X (derecha) todo el partido. Tiro: sin stick al centro de la portería; con stick arriba/abajo hacia ese palo. Pase: al compañero más cercano dentro de ±60° de la dirección del stick (sin stick, hacia donde mira); si no hay nadie, la pelota sale en esa dirección y queda libre. Valores: pase 10 m/s, tiro 14 m/s, radio de recogida 0,6 m, damping de la pelota suelta 1,5.
-  - Fase 2: los jugadores recogen la pelota por distancia (sin colisión física con ella). Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` es provisional hasta la `MatchStateMachine` de la Fase 5.
+  - Fase 2: los jugadores recogen la pelota por distancia (sin colisión física con ella). Cualquier choque de una pelota en vuelo la deja libre. Gol = la pelota cruza entera la línea (trigger dentro de la red), también si entra llevada por un jugador. `GoalRestart` era provisional: lo sustituyó `MatchFlow` en la Fase 5.
   - Fase 1 (aprobado): piscina 20×12 m, porterías de 3 m; velocidad 4 m/s, aceleración 8 m/s², `linearDamping` 2; cámara inclinada ~60° que encuadra todo el campo; HumanBrain lee WASD y también el stick izquierdo del mando.
   - Fase 1: las paredes de fondo dejan libre la boca de la portería; la red (fondo y laterales) tiene colisión. Sin input, el `linearDamping` frena (deriva); con input, el damping es 0 y manda la aceleración.
   - Decisión: el juego es **3D** (URP con Universal Renderer, `Rigidbody` 3D en el plano XZ). Prevalece sobre "2D o 2.5D" del GDD.

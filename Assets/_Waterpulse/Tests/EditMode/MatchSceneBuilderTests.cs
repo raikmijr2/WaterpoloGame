@@ -8,6 +8,7 @@ using Waterpulse.Config;
 using Waterpulse.Core;
 using Waterpulse.EditorTools;
 using Waterpulse.Gameplay;
+using Waterpulse.UI;
 
 namespace Waterpulse.Tests.EditMode
 {
@@ -115,6 +116,42 @@ namespace Waterpulse.Tests.EditMode
             {
                 var team = brain.GetComponent<PlayerController>().Team;
                 AssertRef(brain, "teamAI", team == TeamSide.Home ? home : away);
+            }
+        }
+
+        [Test]
+        public void Build_CreatesMatchFlowAndHud_Once()
+        {
+            MatchSceneBuilder.Build();
+            MatchSceneBuilder.Build();
+
+            var flows = Object.FindObjectsByType<MatchFlow>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, flows.Length, "MatchFlow");
+            Assert.AreEqual(1, Object.FindObjectsByType<ScoreboardView>(FindObjectsSortMode.None).Length, "marcador");
+            Assert.AreEqual(1, Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsSortMode.None).Length, "EventSystem");
+
+            var results = Object.FindObjectsByType<ResultsScreen>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, results.Length, "pantalla final");
+            AssertRef(results[0], "match", flows[0]);
+
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            AssertRef(flows[0], "config", config);
+            AssertRef(flows[0], "ball", Object.FindFirstObjectByType<BallController>());
+            AssertRef(flows[0], "pool", Object.FindFirstObjectByType<PoolBounds>());
+        }
+
+        [Test]
+        public void Build_PlayersStartAtKickoffLayout()
+        {
+            MatchSceneBuilder.Build();
+
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            var pool = Object.FindFirstObjectByType<PoolBounds>();
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                Vector3 expected = KickoffLayout.Position(p.Role, p.Team, pool.Center, pool.HalfLength, config);
+                Assert.AreEqual(expected.x, p.transform.position.x, 1e-3f, p.name);
+                Assert.AreEqual(expected.z, p.transform.position.z, 1e-3f, p.name);
             }
         }
 

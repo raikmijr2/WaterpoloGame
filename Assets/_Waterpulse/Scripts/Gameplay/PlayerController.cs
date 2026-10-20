@@ -18,6 +18,7 @@ namespace Waterpulse.Gameplay
         IPlayerBrain brain;
         PlayerIntent intent;
         float recoverCooldownTimer;
+        bool canAct = true;   // solo se obedece al cerebro mientras se juega (no en saques, goles ni final)
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
@@ -39,13 +40,17 @@ namespace Waterpulse.Gameplay
             body.interpolation = RigidbodyInterpolation.Interpolate;
         }
 
+        void OnEnable() => GameEvents.MatchStateChanged += OnMatchStateChanged;
+        void OnDisable() => GameEvents.MatchStateChanged -= OnMatchStateChanged;
+        void OnMatchStateChanged(MatchState state) => canAct = state == MatchState.Playing;
+
         // Asigna un cerebro externo (p. ej. el del humano). ResetBrain vuelve al propio del jugador
         public void SetBrain(IPlayerBrain newBrain) => brain = newBrain;
         public void ResetBrain() => brain = defaultBrain;
 
         void Update()
         {
-            intent = brain != null ? brain.GetIntent() : PlayerIntent.None;
+            intent = canAct && brain != null ? brain.GetIntent() : PlayerIntent.None;
             if (recoverCooldownTimer > 0f) recoverCooldownTimer -= Time.deltaTime;
 
             // Las pulsaciones duran un frame: se ejecutan aquí y no en FixedUpdate

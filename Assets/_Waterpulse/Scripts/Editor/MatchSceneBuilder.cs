@@ -4,6 +4,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using Waterpulse.AI;
 using Waterpulse.Brains;
@@ -41,11 +43,6 @@ namespace Waterpulse.EditorTools
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
         const string PhysicsDir = RootDir + "/Art/Physics";
 
-        // Posición inicial en campo propio (x = avance hacia la portería rival, y = lateral), por rol.
-        // Durante el juego manda RolePositioning; esto es solo dónde aparecen
-        static readonly Vector2 AttackerStart = new Vector2(-1.5f, 2f);
-        static readonly Vector2 PlaymakerStart = new Vector2(-4f, -2.5f);
-        static readonly Vector2 DefenderStart = new Vector2(-7f, 0f);
 
         [MenuItem("Waterpulse/Build Match Scene", priority = 0)]
         static void BuildFromMenu()
@@ -78,10 +75,10 @@ namespace Waterpulse.EditorTools
             BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false));
             BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true));
 
-            var score = BuildMatchSystems(config, ball, pool);
+            var flow = BuildMatchSystems(config, ball, pool);
             BuildHumanControl(config, ball, mats);
             BuildCamera(config, pool);
-            BuildScoreboard(score);
+            BuildHud(config, flow);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -227,21 +224,14 @@ namespace Waterpulse.EditorTools
                               Material cap, Material suit, TeamAI teamAI)
         {
             var root = new GameObject("Team_" + team).transform;
-            float sign = team.AttackSign();
-            Vector3 facing = Vector3.right * sign;
-
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Attacker, StartPosition(pool, AttackerStart, sign), facing, cap, suit, teamAI);
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Playmaker, StartPosition(pool, PlaymakerStart, sign), facing, cap, suit, teamAI);
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Defender, StartPosition(pool, DefenderStart, sign), facing, cap, suit, teamAI);
-
-            Vector3 goalkeeper = pool.AttackedGoalCenter(team.Opponent()) + facing * c.goalkeeperDepth;
-            BuildPlayer(c, mats, ball, pool, root, team, PlayerRole.Goalkeeper, goalkeeper, facing, mats.GoalkeeperCap, suit, null);
-        }
-
-        // Las posiciones del visitante son las del local reflejadas
-        static Vector3 StartPosition(PoolBounds pool, Vector2 start, float sign)
-        {
-            return pool.Center + new Vector3(start.x * sign, 0f, start.y * sign);
+            foreach (var role in new[] { PlayerRole.Attacker, PlayerRole.Playmaker, PlayerRole.Defender, PlayerRole.Goalkeeper })
+            {
+                // Aparecen en su posición de saque (la misma que usa MatchFlow)
+                Vector3 position = KickoffLayout.Position(role, team, pool.Center, pool.HalfLength, c);
+                bool keeper = role == PlayerRole.Goalkeeper;
+                BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
+                            keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
+            }
         }
 
         static void BuildPlayer(GameConfigSO c, Materials mats, BallController ball, PoolBounds pool, Transform parent, TeamSide team,
@@ -290,15 +280,14 @@ namespace Waterpulse.EditorTools
             Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
         }
 
-        static MatchScore BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool)
+        static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool)
         {
             var go = new GameObject("Match");
-            var score = go.AddComponent<MatchScore>();
-            var restart = go.AddComponent<GoalRestart>();
-            SetRef(restart, "config", c);
-            SetRef(restart, "ball", ball);
-            SetRef(restart, "pool", pool);
-            return score;
+            var flow = go.AddComponent<MatchFlow>();
+            SetRef(flow, "config", c);
+            SetRef(flow, "ball", ball);
+            SetRef(flow, "pool", pool);
+            return flow;
         }
 
         // Control humano estilo FIFA: un único HumanBrain que ControlSwitcher asigna al jugador con la pelota
@@ -315,33 +304,77 @@ namespace Waterpulse.EditorTools
             SetEnum(switcher, "humanTeam", (int)TeamSide.Home);
         }
 
-        static void BuildScoreboard(MatchScore score)
+        // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
+        static void BuildHud(GameConfigSO c, MatchFlow flow)
         {
-            var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
+            var root = canvasGo.transform;
 
-            var textGo = new GameObject("Scoreboard", typeof(RectTransform), typeof(Text), typeof(Outline));
-            textGo.transform.SetParent(canvasGo.transform, false);
-            var rt = textGo.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -20f);
-            rt.sizeDelta = new Vector2(900f, 80f);
-            var text = textGo.GetComponent<Text>();
+            var score = Label(root, "Scoreboard", 48, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(1200f, 80f));
+            var message = Label(root, "Message", 80, new Vector2(0.5f, 0.6f), Vector2.zero, new Vector2(1400f, 140f));
+            message.text = string.Empty;
+
+            var scoreboard = canvasGo.AddComponent<ScoreboardView>();
+            SetRef(scoreboard, "config", c);
+            SetRef(scoreboard, "match", flow);
+            SetRef(scoreboard, "scoreLabel", score);
+            SetRef(scoreboard, "messageLabel", message);
+
+            // Pantalla final (se activa en Results)
+            var panel = new GameObject("ResultsPanel", typeof(RectTransform), typeof(Image));
+            panel.transform.SetParent(root, false);
+            var panelRect = panel.GetComponent<RectTransform>();
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
+            panel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
+
+            var result = Label(panel.transform, "Result", 72, new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1400f, 120f));
+            var winner = Label(panel.transform, "Winner", 56, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400f, 100f));
+            var button = new GameObject("RestartButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            button.transform.SetParent(panel.transform, false);
+            var buttonRect = button.GetComponent<RectTransform>();
+            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.32f);
+            buttonRect.sizeDelta = new Vector2(520f, 110f);
+            button.GetComponent<Image>().color = new Color(0.1f, 0.3f, 0.95f);
+            var buttonLabel = Label(button.transform, "Label", 44, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 110f));
+            buttonLabel.text = "Tornar a jugar";
+
+            var results = canvasGo.AddComponent<ResultsScreen>();
+            SetRef(results, "config", c);
+            SetRef(results, "match", flow);
+            SetRef(results, "panel", panel);
+            SetRef(results, "resultLabel", result);
+            SetRef(results, "winnerLabel", winner);
+            SetRef(results, "restartButton", button.GetComponent<Button>());
+
+            // El botón necesita un EventSystem que lea el Input System nuevo
+            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
+
+        static Text Label(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Text), typeof(Outline));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, anchor.y >= 1f ? 1f : 0.5f);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = dimensions;
+            var text = go.GetComponent<Text>();
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = 48;
+            text.fontSize = size;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
-            textGo.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
-
-            var view = canvasGo.AddComponent<ScoreboardView>();
-            SetRef(view, "score", score);
-            SetRef(view, "label", text);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            go.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
+            return text;
         }
 
         static PhysicsMaterial LoadOrCreateBallPhysics(GameConfigSO c)

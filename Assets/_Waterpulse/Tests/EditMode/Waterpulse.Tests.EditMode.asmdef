@@ -8,7 +8,9 @@
         "Waterpulse.Gameplay",
         "Waterpulse.AI",
         "Waterpulse.Brains",
+        "Waterpulse.UI",
         "Waterpulse.Editor",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
