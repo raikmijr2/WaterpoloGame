@@ -157,8 +157,8 @@ Assets/_Waterpulse/
 
 ## Estado
 
-- Fase actual: **Fase 6 — EN CURSO** (código hecho, pendiente de verificación en el editor)
-- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3, Fase 4, Fase 5
+- Fase actual: **Fase 7 — EN CURSO**
+- Fases completadas: Fase 0, Fase 1, Fase 2, Fase 3, Fase 4, Fase 5, Fase 6
 - Notas:
   - Pendiente para el final (Fase 10): el usuario ha visto cosas a mejorar tras la Fase 5 y prefiere tratarlas al final. Pedirle la lista al llegar a la Fase 10.
   - Fase 6 (aprobado): energía por jugador (`PlayerEnergy` + `EnergyMeter`), empieza en 50. Recompensas: pase completado +5 al pasador; intercepción o robo +10 al que recupera; gol +10 al que marca (no en propia puerta). Atacant → Xut del Tràngol (L con pelota, 35, tiro a 1,6×; el portero solo lo para si le llega al cuerpo: alcance 0,6 m). Organitzador y Defensor → Torpede Blau (L, 25, 2× velocidad 1 s, dirección fija). Porteros sin habilidad. La IA rival usa el Xut cuando iba a tirar y el Torpede para llegar a pelotas sueltas a más de 6 m (`DifficultySO.useAbilities`). Efectos: estela en la pelota (Xut) o en el jugador (Torpede), salpicadura y nombre en pantalla 1 s. Texto provisional "Energia: N" del jugador controlado hasta el HUD de la Fase 8. L también en el botón Y del mando.
