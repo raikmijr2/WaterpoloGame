@@ -9,12 +9,15 @@ namespace Waterpulse.Tests.EditMode
     public class AttackDecisionTests
     {
         static readonly Vector3 Goal = new Vector3(10f, 0f, 0f);
-        static readonly AttackDecision.Settings S = new AttackDecision.Settings { ShootRange = 6f, PressureRadius = 1.5f, LaneWidth = 0.8f };
+        static readonly AttackDecision.Settings S = new AttackDecision.Settings
+        {
+            ShootRange = 6f, PressureRadius = 1.5f, LaneWidth = 0.8f, MaxHoldTime = 3f, PassAdvanceGain = 3f,
+        };
         static readonly List<Vector3> None = new List<Vector3>();
 
-        static AttackChoice Decide(Vector3 self, List<Vector3> mates, List<Vector3> fieldOpp, List<Vector3> allOpp = null)
+        static AttackChoice Decide(Vector3 self, List<Vector3> mates, List<Vector3> fieldOpp, List<Vector3> allOpp = null, float holdTime = 0f)
         {
-            return AttackDecision.Decide(self, 1f, Goal, mates, fieldOpp, allOpp ?? fieldOpp, S);
+            return AttackDecision.Decide(self, 1f, Goal, mates, fieldOpp, allOpp ?? fieldOpp, holdTime, S);
         }
 
         [Test]
@@ -74,11 +77,50 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void AdvancesWhenNotPressured()
+        public void AdvancesWhenNotPressured_AndNoBetterPlacedTeammate()
         {
             var farOpponent = new List<Vector3> { new Vector3(-5f, 0f, 5f) };
-            var mates = new List<Vector3> { new Vector3(3f, 0f, 3f) };
+            var mates = new List<Vector3> { new Vector3(1f, 0f, 3f) };   // solo 1 m más adelantado
             Assert.AreEqual(AttackAction.Advance, Decide(new Vector3(0f, 0f, 0f), mates, farOpponent).Action);
+        }
+
+        [Test]
+        public void PassesWithoutPressure_ToClearlyBetterPlacedTeammate()
+        {
+            var farOpponent = new List<Vector3> { new Vector3(-5f, 0f, 5f) };
+            var mates = new List<Vector3> { new Vector3(4f, 0f, 3f) };   // 4 m más adelantado y con línea limpia
+            var choice = Decide(new Vector3(0f, 0f, 0f), mates, farOpponent);
+            Assert.AreEqual(AttackAction.Pass, choice.Action);
+            Assert.AreEqual(0, choice.PassIndex);
+        }
+
+        [Test]
+        public void InRange_WithBlockedLane_RepositionsAwayFromBlocker()
+        {
+            // Defensor tapando la línea por encima (z > 0): se mueve hacia abajo
+            var blocker = new List<Vector3> { new Vector3(8f, 0f, 0.3f) };
+            var choice = Decide(new Vector3(6f, 0f, 0f), None, blocker);
+            Assert.AreEqual(AttackAction.Reposition, choice.Action);
+            Assert.AreEqual(-1f, choice.LateralSign);
+        }
+
+        [Test]
+        public void HoldingTooLong_InRange_ShootsEvenIfBlocked()
+        {
+            var blocker = new List<Vector3> { new Vector3(8f, 0f, 0.3f) };
+            var choice = Decide(new Vector3(6f, 0f, 0f), None, blocker, null, S.MaxHoldTime);
+            Assert.AreEqual(AttackAction.Shoot, choice.Action);
+        }
+
+        [Test]
+        public void HoldingTooLong_OutOfRange_PassesEvenIfLaneBlocked()
+        {
+            var self = new Vector3(0f, 0f, 0f);
+            var blocker = new List<Vector3> { new Vector3(2f, 0f, 0f) };    // tapa el único pase
+            var mates = new List<Vector3> { new Vector3(4f, 0f, 0f) };
+            var choice = Decide(self, mates, blocker, null, S.MaxHoldTime);
+            Assert.AreEqual(AttackAction.Pass, choice.Action);
+            Assert.AreEqual(0, choice.PassIndex);
         }
     }
 }

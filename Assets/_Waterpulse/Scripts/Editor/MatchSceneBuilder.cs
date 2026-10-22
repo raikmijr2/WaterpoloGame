@@ -104,8 +104,8 @@ namespace Waterpulse.EditorTools
 
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath), out var scoring);
             BuildHumanControl(config, ball, mats);
-            BuildCamera(config, pool);
-            BuildHud(config, flow, scoring);
+            var cam = BuildCamera(config, pool, ball);
+            BuildHud(config, flow, scoring, cam, pool);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -338,7 +338,7 @@ namespace Waterpulse.EditorTools
                 bool keeper = role == PlayerRole.Goalkeeper;
                 var player = BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
                                          keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
-                if (!keeper) AddAbility(player, role, abilities, mats);   // los porteros no tienen habilidad en el prototipo
+                if (!keeper) AddAbility(c, player, role, abilities, mats);   // los porteros no tienen habilidad en el prototipo
             }
         }
 
@@ -390,8 +390,10 @@ namespace Waterpulse.EditorTools
         }
 
         // Energía y habilidad de un jugador de campo: Atacant → Xut del Tràngol; Organitzador y Defensor → Torpede Blau
-        static void AddAbility(GameObject go, PlayerRole role, AbilitySetup setup, Materials mats)
+        static void AddAbility(GameConfigSO c, GameObject go, PlayerRole role, AbilitySetup setup, Materials mats)
         {
+            var stamina = go.AddComponent<PlayerStamina>();
+            SetRef(stamina, "config", c);
             var energy = go.AddComponent<PlayerEnergy>();
             SetRef(energy, "config", setup.Energy);
 
@@ -434,6 +436,7 @@ namespace Waterpulse.EditorTools
         {
             var go = new GameObject("HumanControl");
             var human = go.AddComponent<HumanBrain>();
+            SetRef(human, "config", c);
             var switcher = go.AddComponent<ControlSwitcher>();
             var marker = Prim(PrimitiveType.Cylinder, "ControlMarker", null, new Vector3(0f, MarkerHeight, 0f), new Vector3(1.4f, 0.01f, 1.4f), mats.Marker, false, false);
             SetRef(switcher, "config", c);
@@ -444,7 +447,7 @@ namespace Waterpulse.EditorTools
         }
 
         // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
-        static void BuildHud(GameConfigSO c, MatchFlow flow, MatchScoring scoring)
+        static void BuildHud(GameConfigSO c, MatchFlow flow, MatchScoring scoring, Camera cam, PoolBounds pool)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -470,9 +473,21 @@ namespace Waterpulse.EditorTools
             var announcer = canvasGo.AddComponent<AbilityAnnouncer>();
             SetRef(announcer, "config", c);
             SetRef(announcer, "label", announce);
-            var energyText = Label(root, "Energy", 40, Vector2.zero, new Vector2(220f, 50f), new Vector2(400f, 60f));
+            var energyText = Label(root, "Energy", 40, Vector2.zero, new Vector2(400f, 50f), new Vector2(760f, 60f));
             var energyReadout = canvasGo.AddComponent<EnergyReadout>();
             SetRef(energyReadout, "label", energyText);
+
+            // Flecha hacia la portería rival cuando la cámara no la enseña
+            var arrow = Label(root, "GoalIndicator", 40, Vector2.zero, Vector2.zero, new Vector2(360f, 70f));
+            arrow.color = new Color(1f, 0.85f, 0.2f);
+            arrow.gameObject.SetActive(false);
+            var goalIndicator = canvasGo.AddComponent<GoalIndicator>();
+            SetRef(goalIndicator, "config", c);
+            SetRef(goalIndicator, "pool", pool);
+            SetRef(goalIndicator, "viewCamera", cam);
+            SetRef(goalIndicator, "indicator", arrow.rectTransform);
+            SetRef(goalIndicator, "label", arrow);
+            SetEnum(goalIndicator, "humanTeam", (int)TeamSide.Home);
 
             // Pantalla final (se activa en Results)
             var panel = new GameObject("ResultsPanel", typeof(RectTransform), typeof(Image));
@@ -557,7 +572,7 @@ namespace Waterpulse.EditorTools
             return mat;
         }
 
-        static void BuildCamera(GameConfigSO c, PoolBounds pool)
+        static Camera BuildCamera(GameConfigSO c, PoolBounds pool, BallController ball)
         {
             var go = new GameObject("Main Camera");
             go.tag = "MainCamera";
@@ -569,7 +584,9 @@ namespace Waterpulse.EditorTools
             var matchCamera = go.AddComponent<MatchCamera>();
             SetRef(matchCamera, "config", c);
             SetRef(matchCamera, "pool", pool);
-            matchCamera.Fit();
+            SetRef(matchCamera, "ball", ball);
+            matchCamera.SnapToTarget();
+            return cam;
         }
 
         // ---------- Utilidades ----------

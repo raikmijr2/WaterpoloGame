@@ -17,6 +17,70 @@ MonoBehaviour:
   linearDamping: 2
   turnSpeed: 540
   playerRadius: 0.4
+  playerMass: 70
+  ballRadius: 0.15
+  ballMass: 0.45
+  pickupRadius: 0.6
+  ballHoldDistance: 0.6
+  ballLinearDamping: 1.5
+  ballBounciness: 0.6
+  releaserCooldown: 0.3
+  passSpeed: 10
+  passConeAngle: 60
+  passNoTargetDistance: 6
+  shotSpeed: 14
+  shotPostMargin: 0.3
+  goalkeeperSpeed: 3
+  goalkeeperReactionSpeed: 4
+  goalkeeperDepth: 0.8
+  goalkeeperMaxDepth: 2.5
+  goalkeeperLateralExtra: 0.3
+  goalkeeperFollow: 0.6
+  goalkeeperLooseBallRadius: 2.5
+  saveChanceAtBody: 0.8
+  saveReach: 1.2
+  goalkeeperArriveRadius: 0.1
+  goalkeeperSlowRadius: 1
+  goalkeeperHoldTime: 1
+  goalkeeperOutletFreeDistance: 2
+  formationLateralFollow: 0.5
+  attackerWithBall: {x: 4, y: 2.5}
+  playmakerWithBall: {x: -1.5, y: -2.5}
+  defenderWithBall: {x: -5, y: 0}
+  attackerWithoutBall: {x: -1.5, y: -2}
+  playmakerWithoutBall: {x: -3, y: 2}
+  defenderWithoutBall: {x: -5, y: 0}
+  formationMinGoalDistance: 2
+  formationEdgeMargin: 1
+  markDistance: 1.2
+  recoverRange: 1.2
+  recoverCloseDistance: 0.8
+  recoverChanceFar: 0.5
+  recoverChanceClose: 0.75
+  recoverCooldown: 0.8
+  recoverImmunity: 0.5
+  interceptRadius: 0.8
+  interceptChance: 0.4
+  autoSwitchMargin: 1.5
+  autoSwitchCooldown: 0.5
+  aiShootRange: 6
+  aiPressureRadius: 1.5
+  aiLaneWidth: 0.8
+  aiAdvanceDistance: 5
+  aiPressDistance: 0.8
+  aiBoostDistance: 6
+  aiArriveRadius: 0.5
+  aiSlowRadius: 2
+  matchDuration: 150
+  kickoffDelay: 1.5
+  goalRestartDelay: 1.5
+  fullTimeDelay: 1.5
+  attackerKickoff: {x: -1.5, y: 2}
+  playmakerKickoff: {x: -4, y: -2.5}
+  defenderKickoff: {x: -7, y: 0}
+  homeTeamName: LOCAL
+  awayTeamName: VISITANT
+  abilityAnnounceDuration: 1
   poolLength: 20
   poolWidth: 12
   goalWidth: 3
@@ -24,3 +88,15 @@ MonoBehaviour:
   cameraPitch: 60
   cameraMargin: 1.5
   cameraFieldOfView: 40
+  cameraViewLength: 17
+  cameraSmoothTime: 0.3
+  cameraLead: 2
+  maxStamina: 100
+  staminaRegenPerSecond: 10
+  dashCost: 50
+  dashDuration: 0.15
+  dashSpeedMultiplier: 3
+  dashCooldown: 0.5
+  slowSwimMultiplier: 0.4
+  slowBrakeDeceleration: 40
+  aiDashDistance: 4

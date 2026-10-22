@@ -33,6 +33,8 @@ namespace Waterpulse.Brains
         readonly List<Vector3> fieldOpponentPositions = new List<Vector3>();
         readonly List<Vector3> allOpponentPositions = new List<Vector3>();
         float decisionTimer;
+        float holdTimer;      // tiempo que lleva con la pelota
+        float attackLaneZ;    // carril (Z) por el que avanza con la pelota
 
         public State Current { get; private set; }
         public Vector3 Target { get; private set; }
@@ -76,12 +78,20 @@ namespace Waterpulse.Brains
             bool decide = decisionTimer <= 0f;
             if (decide) decisionTimer = ReactionTime;
 
+            // Tiempo con la pelota: al recibirla empieza por su carril actual
+            if (self.HasBall)
+            {
+                if (holdTimer <= 0f) attackLaneZ = self.Position.z;
+                holdTimer += Time.deltaTime;
+            }
+            else holdTimer = 0f;
+
             if (Aggressive)
             {
                 // Persecución, corte y presión a máxima velocidad: si frenaran al llegar, no alcanzarían a nadie
                 if (self.HasBall) return Attack(decide);
                 if (teamAI.Chaser == self && ball.State == BallState.Free) return Chase();
-                if (teamAI.Interceptor == self && ball.State == BallState.InFlight) return Go(State.Intercept, teamAI.InterceptPoint, true);
+                if (teamAI.Interceptor == self && ball.State == BallState.InFlight) return WithDash(Go(State.Intercept, teamAI.InterceptPoint, true));
                 if (teamAI.Presser == self && ball.Holder != null) return Press(decide);
             }
 
@@ -108,8 +118,18 @@ namespace Waterpulse.Brains
                     ShootRange = config.aiShootRange,
                     PressureRadius = config.aiPressureRadius,
                     LaneWidth = config.aiLaneWidth,
+                    MaxHoldTime = config.aiMaxHoldTime,
+                    PassAdvanceGain = config.aiPassAdvanceGain,
                 };
-                var choice = AttackDecision.Decide(self.Position, sign, goal, teammatePositions, fieldOpponentPositions, allOpponentPositions, settings);
+                var choice = AttackDecision.Decide(self.Position, sign, goal, teammatePositions, fieldOpponentPositions,
+                                                   allOpponentPositions, holdTimer, settings);
+
+                // Avanzar mantiene su carril; reposicionarse desplaza el carril en lateral para buscar hueco de tiro
+                attackLaneZ = choice.Action == AttackAction.Reposition
+                    ? Mathf.Clamp(self.Position.z + choice.LateralSign * config.aiRepositionStep,
+                                  pool.Center.z - pool.HalfWidth + config.formationEdgeMargin,
+                                  pool.Center.z + pool.HalfWidth - config.formationEdgeMargin)
+                    : self.Position.z;
                 if (choice.Action == AttackAction.Shoot)
                 {
                     // Apunta a un palo al azar: el eje Y del stick elige el palo
@@ -125,21 +145,33 @@ namespace Waterpulse.Brains
                 }
             }
 
-            // Avanza hacia la zona de tiro manteniendo su carril
+            // Avanza hacia la zona de tiro por su carril
             Vector3 spot = goal - Vector3.right * (sign * config.aiAdvanceDistance);
-            spot.z = self.Position.z;
+            spot.z = attackLaneZ;
             return Go(State.Attack, spot);
         }
 
         // ---------- Sin pelota ----------
 
-        // A por la pelota suelta; si está lejos, usa el Torpede Blau para llegar antes
+        // A por la pelota suelta; si está lejos usa el Torpede Blau y, si no lo tiene o no le llega, el dash
         PlayerIntent Chase()
         {
             PlayerIntent intent = Go(State.Chase, ball.Position, true);
             float distance = Flat(ball.Position - self.Position).magnitude;
             if (distance > config.aiBoostDistance && !self.IsBoosting && CanUseAbility(AbilityKind.Boost))
+            {
                 intent.Ability = true;
+                return intent;
+            }
+            return WithDash(intent);
+        }
+
+        // Dash de la IA rival si su objetivo está lejos, tiene estamina y va lo bastante lenta para que se note
+        PlayerIntent WithDash(PlayerIntent intent)
+        {
+            var stamina = self.Stamina;
+            if (stamina == null || self.IsBoosting || !stamina.CanDash || self.DashStrength < config.dashMinStrength) return intent;
+            if (Flat(Target - self.Position).magnitude > config.aiDashDistance) intent.Dash = true;
             return intent;
         }
 
@@ -149,7 +181,7 @@ namespace Waterpulse.Brains
             var holder = ball.Holder;
             Vector3 ownGoal = pool.AttackedGoalCenter(self.Team.Opponent());
             Vector3 spot = holder.Position + Flat(ownGoal - holder.Position).normalized * config.aiPressDistance;
-            PlayerIntent intent = Go(State.Press, spot, true);
+            PlayerIntent intent = WithDash(Go(State.Press, spot, true));
 
             bool inRange = Flat(holder.Position - self.Position).magnitude <= config.recoverRange;
             if (decide && inRange && self.CanTryRecover && Random.value < teamAI.Difficulty.aggressiveness)

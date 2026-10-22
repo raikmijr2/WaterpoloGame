@@ -9,6 +9,7 @@ namespace Waterpulse.Core
         public bool Pass;
         public bool Shoot;
         public bool Ability;
+        public bool Dash;      // impulso corto que gasta estamina (Fase 8). Nadar lento = Move con poca magnitud
 
         public static PlayerIntent None => default;
     }

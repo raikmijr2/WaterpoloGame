@@ -210,6 +210,27 @@ namespace Waterpulse.Tests.EditMode
                 Assert.IsNotNull(new SerializedObject(results).FindProperty(field).objectReferenceValue, field);
         }
 
+        [Test]
+        public void Build_StaminaCameraAndGoalIndicator()
+        {
+            MatchSceneBuilder.Build();
+
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                var stamina = p.GetComponent<PlayerStamina>();
+                Assert.AreEqual(!p.IsGoalkeeper, stamina != null, p.name + " estamina (solo jugadores de campo)");
+                if (stamina != null) AssertRef(stamina, "config", config);
+            }
+
+            AssertRef(Object.FindFirstObjectByType<MatchCamera>(), "ball", Object.FindFirstObjectByType<BallController>());
+            AssertRef(Object.FindFirstObjectByType<HumanBrain>(), "config", config);
+
+            var indicators = Object.FindObjectsByType<GoalIndicator>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, indicators.Length, "flecha de portería");
+            AssertRef(indicators[0], "viewCamera", Object.FindFirstObjectByType<Camera>());
+        }
+
         static void AssertRef(Object target, string field, Object expected)
         {
             Assert.IsNotNull(target, $"falta {field}");

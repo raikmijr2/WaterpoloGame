@@ -117,6 +117,8 @@ namespace Waterpulse.Config
         public float autoSwitchMargin = 1.5f;
         [Tooltip("Tiempo mínimo entre cambios automáticos (s)")]
         public float autoSwitchCooldown = 0.5f;
+        [Tooltip("Tras cambiar de jugador a mano (Q), el cambio automático espera este tiempo para no deshacerlo (s)")]
+        public float manualSwitchLock = 2f;
 
         [Header("IA: ataque")]
         [Tooltip("Tira si está a esta distancia de la portería o menos y la línea está libre (m)")]
@@ -129,6 +131,12 @@ namespace Waterpulse.Config
         public float aiAdvanceDistance = 5f;
         [Tooltip("Distancia del presionador al poseedor, del lado de su portería (m)")]
         public float aiPressDistance = 0.8f;
+        [Tooltip("Tiempo máximo con la pelota sin hacer nada: después tira (en zona de tiro) o pasa (s)")]
+        public float aiMaxHoldTime = 3f;
+        [Tooltip("Pasa sin que le presionen si un compañero con línea limpia está al menos esto más adelantado (m)")]
+        public float aiPassAdvanceGain = 3f;
+        [Tooltip("Cuánto se desplaza en lateral para buscar hueco de tiro cuando le tapan la línea (m)")]
+        public float aiRepositionStep = 2f;
         [Tooltip("La IA usa el acelerón (Torpede Blau) para llegar a una pelota suelta más lejos que esto (m)")]
         public float aiBoostDistance = 6f;
 
@@ -161,17 +169,47 @@ namespace Waterpulse.Config
 
         [Header("Piscina (requiere regenerar la escena)")]
         [Tooltip("Largo del campo, de portería a portería (m)")]
-        public float poolLength = 20f;
+        public float poolLength = 30f;
         [Tooltip("Ancho del campo (m)")]
-        public float poolWidth = 12f;
+        public float poolWidth = 20f;
         public float goalWidth = 3f;
         public float goalHeight = 0.9f;
 
         [Header("Cámara")]
         [Tooltip("Inclinación: 90 = cenital")]
         [Range(30f, 90f)] public float cameraPitch = 60f;
-        [Tooltip("Margen alrededor del campo que siempre queda visible (m)")]
+        [Tooltip("Lo más que se ve fuera del campo cuando la cámara llega a un borde (m)")]
         public float cameraMargin = 1.5f;
         public float cameraFieldOfView = 40f;
+        [Tooltip("Largo del campo que encuadra la cámara a lo ancho de la pantalla (m)")]
+        public float cameraViewLength = 17f;
+        [Tooltip("Suavizado del seguimiento (s). Más alto = la cámara va más por detrás")]
+        public float cameraSmoothTime = 0.3f;
+        [Tooltip("Adelanto de la cámara hacia la portería que ataca el equipo con la pelota (m)")]
+        public float cameraLead = 2f;
+        [Tooltip("Temblor de cámara cuando fallas un intento de robo: duración (s)")]
+        public float cameraShakeDuration = 0.15f;
+        [Tooltip("Temblor de cámara cuando fallas un intento de robo: amplitud (m)")]
+        public float cameraShakeAmplitude = 0.12f;
+
+        [Header("Estamina, dash y nado lento")]
+        public float maxStamina = 100f;
+        [Tooltip("Recarga por segundo")]
+        public float staminaRegenPerSecond = 20f;
+        public float dashCost = 30f;
+        [Tooltip("Duración del impulso (s)")]
+        public float dashDuration = 0.12f;
+        [Tooltip("Velocidad del dash desde parado, respecto a la máxima de nado. Cuanto más rápido vas, menos se nota: a velocidad máxima no hace nada")]
+        public float dashSpeedMultiplier = 3f;
+        [Tooltip("Fuerza mínima (0-1) para que haya dash. Por debajo (yendo casi a tope) no se hace ni gasta estamina")]
+        [Range(0f, 1f)] public float dashMinStrength = 0.1f;
+        [Tooltip("Espera mínima entre dashes (s)")]
+        public float dashCooldown = 0.5f;
+        [Tooltip("Velocidad al nadar lento (Espacio) respecto a la máxima (0-1)")]
+        [Range(0.1f, 1f)] public float slowSwimMultiplier = 0.4f;
+        [Tooltip("Frenada cuando vas más rápido de lo que pide el stick, p. ej. al pulsar Espacio (m/s²). Alto = para casi en seco")]
+        public float slowBrakeDeceleration = 40f;
+        [Tooltip("La IA rival hace dash si el objetivo está más lejos que esto (m)")]
+        public float aiDashDistance = 4f;
     }
 }

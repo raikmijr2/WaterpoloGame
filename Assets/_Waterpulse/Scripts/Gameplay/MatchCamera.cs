@@ -1,79 +1,108 @@
 using UnityEngine;
 using Waterpulse.Config;
+using Waterpulse.Core;
 
 namespace Waterpulse.Gameplay
 {
-    // Cámara fija e inclinada que se aleja lo justo para que todo el campo quepa con cualquier proporción de pantalla
+    // Cámara inclinada que sigue la pelota con suavizado y algo de adelanto hacia la portería que ataca
+    // el equipo con la pelota. Encuadra un trozo del campo (no todo) y nunca se sale de la piscina
     [RequireComponent(typeof(Camera))]
     public class MatchCamera : MonoBehaviour
     {
         [SerializeField] GameConfigSO config;
         [SerializeField] PoolBounds pool;
-
-        const int SearchIterations = 24;
-        const float MinDistance = 1f;
-        const float MaxDistance = 200f;
+        [SerializeField] BallController ball;
 
         Camera cam;
-        readonly Vector3[] corners = new Vector3[8];
+        Vector3 focus;
+        Vector3 focusVelocity;
+        bool snapped;
+        GameObject controlled;
+        float shakeTimer;
 
         void Awake() => cam = GetComponent<Camera>();
 
-        // Se recalcula cada frame: cubre cambios de tamaño de ventana, rotación del móvil y ajustes en Play
-        void LateUpdate() => Fit();
-
-        public void Fit()
+        void OnEnable()
         {
-            if (config == null || pool == null) return;
+            GameEvents.ControlledPlayerChanged += OnControlledChanged;
+            GameEvents.RecoverFailed += OnRecoverFailed;
+        }
+
+        void OnDisable()
+        {
+            GameEvents.ControlledPlayerChanged -= OnControlledChanged;
+            GameEvents.RecoverFailed -= OnRecoverFailed;
+        }
+
+        void OnControlledChanged(GameObject player) => controlled = player;
+
+        // Temblor pequeño cuando el humano falla un robo con J (no con los de la IA)
+        void OnRecoverFailed(GameObject player)
+        {
+            if (player != null && player == controlled) shakeTimer = config.cameraShakeDuration;
+        }
+
+        void LateUpdate()
+        {
+            if (!Ready()) return;
+            Vector3 target = Target();
+            if (!snapped)
+            {
+                focus = target;
+                snapped = true;
+            }
+            focus = Vector3.SmoothDamp(focus, target, ref focusVelocity, config.cameraSmoothTime);
+            Place(focus + ShakeOffset());
+        }
+
+        // Desplazamiento aleatorio que se va apagando durante el temblor
+        Vector3 ShakeOffset()
+        {
+            if (shakeTimer <= 0f) return Vector3.zero;
+            shakeTimer -= Time.deltaTime;
+            float fade = config.cameraShakeDuration > 0f ? Mathf.Clamp01(shakeTimer / config.cameraShakeDuration) : 0f;
+            Vector2 r = Random.insideUnitCircle * (config.cameraShakeAmplitude * fade);
+            return new Vector3(r.x, 0f, r.y);
+        }
+
+        // Coloca la cámara directamente sobre su objetivo (la usa el generador de escena)
+        public void SnapToTarget()
+        {
+            if (!Ready()) return;
+            focus = Target();
+            focusVelocity = Vector3.zero;
+            snapped = true;
+            Place(focus);
+        }
+
+        bool Ready()
+        {
+            if (config == null || pool == null || ball == null) return false;
             if (cam == null) cam = GetComponent<Camera>();
-            cam.fieldOfView = config.cameraFieldOfView;
-
-            FillCorners();
-            Quaternion rotation = Quaternion.Euler(config.cameraPitch, 0f, 0f);
-            Vector3 center = pool.Center;
-
-            // Búsqueda binaria de la distancia mínima en la que todas las esquinas quedan dentro del viewport
-            float lo = MinDistance, hi = MaxDistance;
-            for (int i = 0; i < SearchIterations; i++)
-            {
-                float mid = (lo + hi) * 0.5f;
-                Place(center, rotation, mid);
-                if (AllCornersVisible()) hi = mid;
-                else lo = mid;
-            }
-            Place(center, rotation, hi);
-        }
-
-        void Place(Vector3 center, Quaternion rotation, float distance)
-        {
-            transform.SetPositionAndRotation(center - rotation * Vector3.forward * distance, rotation);
-        }
-
-        void FillCorners()
-        {
-            float hx = pool.HalfLength + config.cameraMargin;
-            float hz = pool.HalfWidth + config.cameraMargin;
-            float y0 = pool.WaterY;
-            float y1 = pool.WaterY + config.goalHeight;
-            Vector3 c = pool.Center;
-            int i = 0;
-            foreach (float y in new[] { y0, y1 })
-            {
-                corners[i++] = new Vector3(c.x - hx, y, c.z - hz);
-                corners[i++] = new Vector3(c.x + hx, y, c.z - hz);
-                corners[i++] = new Vector3(c.x - hx, y, c.z + hz);
-                corners[i++] = new Vector3(c.x + hx, y, c.z + hz);
-            }
-        }
-
-        bool AllCornersVisible()
-        {
-            foreach (var corner in corners)
-            {
-                Vector3 v = cam.WorldToViewportPoint(corner);
-                if (v.z <= 0f || v.x < 0f || v.x > 1f || v.y < 0f || v.y > 1f) return false;
-            }
             return true;
+        }
+
+        float Distance() => CameraFraming.DistanceForViewLength(config.cameraViewLength, config.cameraFieldOfView, cam.aspect);
+
+        // La pelota, adelantada hacia donde ataca quien la tiene, sin enseñar más allá del campo
+        Vector3 Target()
+        {
+            float lead = ball.HasPossession(TeamSide.Home) ? TeamSide.Home.AttackSign()
+                       : ball.HasPossession(TeamSide.Away) ? TeamSide.Away.AttackSign() : 0f;
+            Vector3 target = ball.Position + Vector3.right * (lead * config.cameraLead);
+            target.y = pool.WaterY;
+
+            float distance = Distance();
+            float halfViewX = config.cameraViewLength * 0.5f;
+            float halfViewZ = CameraFraming.HalfViewDepth(distance, config.cameraFieldOfView, config.cameraPitch);
+            return CameraFraming.ClampFocus(target, pool.Center, pool.HalfLength, pool.HalfWidth, config.cameraMargin, halfViewX, halfViewZ);
+        }
+
+        void Place(Vector3 point)
+        {
+            cam.fieldOfView = config.cameraFieldOfView;
+            Quaternion rotation = Quaternion.Euler(config.cameraPitch, 0f, 0f);
+            transform.SetPositionAndRotation(point - rotation * Vector3.forward * Distance(), rotation);
         }
     }
 }

@@ -126,8 +126,10 @@ namespace Waterpulse.Gameplay
         {
             if (Holder != from || IsFrozen) return false;
 
-            // Sin stick al centro; con stick arriba/abajo hacia ese palo
-            float lateral = Mathf.Clamp(stick.y, -1f, 1f) * (config.goalWidth * 0.5f - config.shotPostMargin);
+            // Sin stick al centro; con stick arriba/abajo hacia ese palo. Cuenta la dirección, no la inclinación
+            // (nadar lento o inclinar poco el joystick no debe cambiar la puntería)
+            Vector2 aim = stick.sqrMagnitude > 0.0001f ? stick.normalized : Vector2.zero;
+            float lateral = aim.y * (config.goalWidth * 0.5f - config.shotPostMargin);
             Vector3 point = pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
             Launch(FlightKind.Shot, from, null, point, config.shotSpeed * speedMultiplier, ShotOvershoot);
             IsSpecialShot = special;
