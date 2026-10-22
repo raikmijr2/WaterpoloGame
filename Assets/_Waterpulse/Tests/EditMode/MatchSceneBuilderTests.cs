@@ -190,6 +190,26 @@ namespace Waterpulse.Tests.EditMode
             Assert.AreEqual(1, Object.FindObjectsByType<EnergyRewards>(FindObjectsSortMode.None).Length, "EnergyRewards");
         }
 
+        [Test]
+        public void Build_WiresScoringAndResults()
+        {
+            MatchSceneBuilder.Build();
+
+            var scoringConfig = AssetDatabase.LoadAssetAtPath<ScoringConfigSO>(MatchSceneBuilder.ScoringConfigPath);
+            Assert.IsNotNull(scoringConfig, "ScoringConfig");
+            Assert.AreEqual(100, scoringConfig.goalPoints, "puntos por gol del GDD");
+
+            var scorings = Object.FindObjectsByType<MatchScoring>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, scorings.Length, "MatchScoring");
+            AssertRef(scorings[0], "config", scoringConfig);
+            AssertRef(scorings[0], "ball", Object.FindFirstObjectByType<BallController>());
+
+            var results = Object.FindFirstObjectByType<ResultsScreen>();
+            AssertRef(results, "scoring", scorings[0]);
+            foreach (var field in new[] { "homeColumn", "awayColumn", "recordLabel" })
+                Assert.IsNotNull(new SerializedObject(results).FindProperty(field).objectReferenceValue, field);
+        }
+
         static void AssertRef(Object target, string field, Object expected)
         {
             Assert.IsNotNull(target, $"falta {field}");

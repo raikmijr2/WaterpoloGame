@@ -28,6 +28,7 @@ namespace Waterpulse.EditorTools
         public const string EnergyConfigPath = RootDir + "/Config/EnergyConfig.asset";
         public const string XutTragolPath = RootDir + "/Config/Ability_XutTragol.asset";
         public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
+        public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
         const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -101,10 +102,10 @@ namespace Waterpulse.EditorTools
             BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false), abilities);
             BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true), abilities);
 
-            var flow = BuildMatchSystems(config, ball, pool, abilities.Energy);
+            var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath), out var scoring);
             BuildHumanControl(config, ball, mats);
             BuildCamera(config, pool);
-            BuildHud(config, flow);
+            BuildHud(config, flow, scoring);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -412,7 +413,8 @@ namespace Waterpulse.EditorTools
             }
         }
 
-        static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool, EnergyConfigSO energy)
+        static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool, EnergyConfigSO energy,
+                                           ScoringConfigSO scoringConfig, out MatchScoring scoring)
         {
             var go = new GameObject("Match");
             var flow = go.AddComponent<MatchFlow>();
@@ -421,6 +423,9 @@ namespace Waterpulse.EditorTools
             SetRef(flow, "pool", pool);
             var rewards = go.AddComponent<EnergyRewards>();
             SetRef(rewards, "config", energy);
+            scoring = go.AddComponent<MatchScoring>();
+            SetRef(scoring, "config", scoringConfig);
+            SetRef(scoring, "ball", ball);
             return flow;
         }
 
@@ -439,7 +444,7 @@ namespace Waterpulse.EditorTools
         }
 
         // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
-        static void BuildHud(GameConfigSO c, MatchFlow flow)
+        static void BuildHud(GameConfigSO c, MatchFlow flow, MatchScoring scoring)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -478,12 +483,20 @@ namespace Waterpulse.EditorTools
             panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
             panel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
 
-            var result = Label(panel.transform, "Result", 72, new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1400f, 120f));
-            var winner = Label(panel.transform, "Winner", 56, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400f, 100f));
+            var result = Label(panel.transform, "Result", 72, new Vector2(0.5f, 0.88f), Vector2.zero, new Vector2(1400f, 110f));
+            var winner = Label(panel.transform, "Winner", 52, new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(1400f, 80f));
+
+            // Puntos por jugador de cada equipo, con el MVP marcado, pases y habilidades
+            var homeColumn = Label(panel.transform, "HomeColumn", 34, new Vector2(0.3f, 0.5f), Vector2.zero, new Vector2(760f, 440f));
+            var awayColumn = Label(panel.transform, "AwayColumn", 34, new Vector2(0.7f, 0.5f), Vector2.zero, new Vector2(760f, 440f));
+            homeColumn.color = new Color(0.6f, 0.75f, 1f);
+            var record = Label(panel.transform, "Record", 44, new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1400f, 70f));
+            record.color = new Color(1f, 0.85f, 0.2f);
+
             var button = new GameObject("RestartButton", typeof(RectTransform), typeof(Image), typeof(Button));
             button.transform.SetParent(panel.transform, false);
             var buttonRect = button.GetComponent<RectTransform>();
-            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.32f);
+            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.12f);
             buttonRect.sizeDelta = new Vector2(520f, 110f);
             button.GetComponent<Image>().color = new Color(0.1f, 0.3f, 0.95f);
             var buttonLabel = Label(button.transform, "Label", 44, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 110f));
@@ -495,6 +508,10 @@ namespace Waterpulse.EditorTools
             SetRef(results, "panel", panel);
             SetRef(results, "resultLabel", result);
             SetRef(results, "winnerLabel", winner);
+            SetRef(results, "scoring", scoring);
+            SetRef(results, "homeColumn", homeColumn);
+            SetRef(results, "awayColumn", awayColumn);
+            SetRef(results, "recordLabel", record);
             SetRef(results, "restartButton", button.GetComponent<Button>());
 
             // El botón necesita un EventSystem que lea el Input System nuevo
@@ -517,6 +534,7 @@ namespace Waterpulse.EditorTools
             text.color = Color.white;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             go.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
             return text;
         }
