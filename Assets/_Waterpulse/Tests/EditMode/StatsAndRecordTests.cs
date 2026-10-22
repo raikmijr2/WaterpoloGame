@@ -70,6 +70,7 @@ namespace Waterpulse.Tests.EditMode
             public readonly Dictionary<string, int> Values = new Dictionary<string, int>();
             public bool TryGet(string key, out int value) => Values.TryGetValue(key, out value);
             public void Set(string key, int value) => Values[key] = value;
+            public void Delete(string key) => Values.Remove(key);
         }
 
         const string Key = "test.record";
@@ -109,6 +110,19 @@ namespace Waterpulse.Tests.EditMode
             var store = new MemoryStore();
             new RecordStorage(store, Key).Submit(300);
             Assert.AreEqual(300, new RecordStorage(store, Key).Best);
+        }
+
+        [Test]
+        public void Clear_RemovesRecord_NextMatchIsARecordAgain()
+        {
+            var store = new MemoryStore();
+            var record = new RecordStorage(store, Key);
+            record.Submit(300);
+            record.Clear();
+            Assert.IsFalse(record.HasRecord);
+            Assert.AreEqual(0, record.Best);
+            Assert.IsFalse(store.Values.ContainsKey(Key), "se borra del almacén");
+            Assert.IsTrue(record.Submit(50), "tras borrarlo, cualquier puntuación es récord");
         }
     }
 }

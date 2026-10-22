@@ -14,11 +14,13 @@ using Waterpulse.Config;
 using Waterpulse.Core;
 using Waterpulse.Gameplay;
 using Waterpulse.UI;
+using static Waterpulse.EditorTools.UiFactory;
 
 namespace Waterpulse.EditorTools
 {
     // Genera la escena del partido. Crea la escena desde cero cada vez (no duplica objetos)
-    // y solo crea GameConfig.asset si no existe (no pisa los ajustes)
+    // y solo crea GameConfig.asset si no existe (no pisa los ajustes).
+    // La piscina, las porterías, la luz y las utilidades son internal: el menú (MenuSceneBuilder) las reutiliza de fondo
     public static class MatchSceneBuilder
     {
         public const string RootDir = "Assets/_Waterpulse";
@@ -29,7 +31,7 @@ namespace Waterpulse.EditorTools
         public const string XutTragolPath = RootDir + "/Config/Ability_XutTragol.asset";
         public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
         public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
-        const string MaterialDir = RootDir + "/Art/Materials";
+        internal const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
         const float WallThickness = 0.5f;
@@ -105,10 +107,10 @@ namespace Waterpulse.EditorTools
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath), out var scoring);
             BuildHumanControl(config, ball, mats);
             var cam = BuildCamera(config, pool, ball);
-            BuildHud(config, flow, scoring, cam, pool);
+            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, cam, pool);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            MenuSceneBuilder.RegisterBuildScenes();
             AssetDatabase.SaveAssets();
         }
 
@@ -116,7 +118,7 @@ namespace Waterpulse.EditorTools
 
         // Solo crea el asset si no existe: nunca pisa los valores ajustados.
         // "init" pone los valores por defecto propios de ese asset (solo al crearlo)
-        static T LoadOrCreate<T>(string path, System.Action<T> init = null) where T : ScriptableObject
+        internal static T LoadOrCreate<T>(string path, System.Action<T> init = null) where T : ScriptableObject
         {
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset != null) return asset;
@@ -168,7 +170,7 @@ namespace Waterpulse.EditorTools
 
         // ---------- Escena ----------
 
-        static void BuildLight()
+        internal static void BuildLight()
         {
             var go = new GameObject("Directional Light");
             var light = go.AddComponent<Light>();
@@ -180,7 +182,7 @@ namespace Waterpulse.EditorTools
             RenderSettings.ambientLight = new Color(0.55f, 0.6f, 0.65f);
         }
 
-        static PoolBounds BuildPool(GameConfigSO c, Materials mats)
+        internal static PoolBounds BuildPool(GameConfigSO c, Materials mats)
         {
             var root = new GameObject("Pool");
             var bounds = root.AddComponent<PoolBounds>();
@@ -232,7 +234,7 @@ namespace Waterpulse.EditorTools
         }
 
         // Portería: postes y red con colisión (la red cierra la boca por detrás) y trigger de gol dentro de la red
-        static void BuildGoal(GameConfigSO c, Materials mats, Transform pool, float side, TeamSide defendingTeam)
+        internal static void BuildGoal(GameConfigSO c, Materials mats, Transform pool, float side, TeamSide defendingTeam)
         {
             var root = new GameObject(side > 0f ? "Goal_East" : "Goal_West").transform;
             root.SetParent(pool, false);
@@ -447,7 +449,7 @@ namespace Waterpulse.EditorTools
         }
 
         // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
-        static void BuildHud(GameConfigSO c, MatchFlow flow, MatchScoring scoring, Camera cam, PoolBounds pool)
+        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, Camera cam, PoolBounds pool)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -496,7 +498,7 @@ namespace Waterpulse.EditorTools
             panelRect.anchorMin = Vector2.zero;
             panelRect.anchorMax = Vector2.one;
             panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
-            panel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
+            panel.GetComponent<Image>().color = PanelColor;
 
             var result = Label(panel.transform, "Result", 72, new Vector2(0.5f, 0.88f), Vector2.zero, new Vector2(1400f, 110f));
             var winner = Label(panel.transform, "Winner", 52, new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(1400f, 80f));
@@ -508,17 +510,13 @@ namespace Waterpulse.EditorTools
             var record = Label(panel.transform, "Record", 44, new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1400f, 70f));
             record.color = new Color(1f, 0.85f, 0.2f);
 
-            var button = new GameObject("RestartButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            button.transform.SetParent(panel.transform, false);
-            var buttonRect = button.GetComponent<RectTransform>();
-            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.12f);
-            buttonRect.sizeDelta = new Vector2(520f, 110f);
-            button.GetComponent<Image>().color = new Color(0.1f, 0.3f, 0.95f);
-            var buttonLabel = Label(button.transform, "Label", 44, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 110f));
-            buttonLabel.text = "Tornar a jugar";
+            // "Tornar a jugar" y "Menú principal", con el estilo de los botones del menú
+            var restartButton = StyledButton<Button>(panel.transform, "RestartButton", "Tornar a jugar", 44, new Vector2(0.5f, 0.12f), new Vector2(-290f, 0f), new Vector2(520f, 110f));
+            var menuButton = StyledButton<Button>(panel.transform, "MenuButton", "Menú principal", 44, new Vector2(0.5f, 0.12f), new Vector2(290f, 0f), new Vector2(520f, 110f));
 
             var results = canvasGo.AddComponent<ResultsScreen>();
             SetRef(results, "config", c);
+            SetRef(results, "menuConfig", menuConfig);
             SetRef(results, "match", flow);
             SetRef(results, "panel", panel);
             SetRef(results, "resultLabel", result);
@@ -527,31 +525,11 @@ namespace Waterpulse.EditorTools
             SetRef(results, "homeColumn", homeColumn);
             SetRef(results, "awayColumn", awayColumn);
             SetRef(results, "recordLabel", record);
-            SetRef(results, "restartButton", button.GetComponent<Button>());
+            SetRef(results, "restartButton", restartButton);
+            SetRef(results, "menuButton", menuButton);
 
-            // El botón necesita un EventSystem que lea el Input System nuevo
+            // Los botones necesitan un EventSystem que lea el Input System nuevo
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-        }
-
-        static Text Label(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Text), typeof(Outline));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = anchor;
-            rt.pivot = new Vector2(0.5f, anchor.y >= 1f ? 1f : 0.5f);
-            rt.anchoredPosition = position;
-            rt.sizeDelta = dimensions;
-            var text = go.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = size;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            go.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
-            return text;
         }
 
         static PhysicsMaterial LoadOrCreateBallPhysics(GameConfigSO c)
@@ -591,7 +569,7 @@ namespace Waterpulse.EditorTools
 
         // ---------- Utilidades ----------
 
-        static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool keepCollider, bool castShadows = true)
+        internal static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool keepCollider, bool castShadows = true)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
@@ -605,7 +583,7 @@ namespace Waterpulse.EditorTools
             return go;
         }
 
-        static void SetFlag(Object target, string field, bool value)
+        internal static void SetFlag(Object target, string field, bool value)
         {
             var so = new SerializedObject(target);
             var prop = so.FindProperty(field);
@@ -614,7 +592,7 @@ namespace Waterpulse.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        static void SetEnum(Object target, string field, int value)
+        internal static void SetEnum(Object target, string field, int value)
         {
             var so = new SerializedObject(target);
             var prop = so.FindProperty(field);
@@ -623,7 +601,7 @@ namespace Waterpulse.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        static void SetRef(Object target, string field, Object value)
+        internal static void SetRef(Object target, string field, Object value)
         {
             var so = new SerializedObject(target);
             var prop = so.FindProperty(field);
@@ -638,7 +616,7 @@ namespace Waterpulse.EditorTools
                 Debug.LogError($"[Waterpulse] No se pudo asignar '{field}' en {target.GetType().Name}");
         }
 
-        static void EnsureFolder(string path)
+        internal static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path)) return;
             string parent = Path.GetDirectoryName(path)?.Replace('\\', '/');
@@ -647,7 +625,7 @@ namespace Waterpulse.EditorTools
         }
 
         // Materiales URP generados (se actualizan en cada ejecución, no se duplican)
-        class Materials
+        internal class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
             public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Marker, Trail, Splash;

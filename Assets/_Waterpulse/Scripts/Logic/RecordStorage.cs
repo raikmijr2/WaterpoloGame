@@ -6,6 +6,7 @@ namespace Waterpulse.Logic
     {
         bool TryGet(string key, out int value);
         void Set(string key, int value);
+        void Delete(string key);
     }
 
     // Récord personal: los puntos totales del equipo del jugador en un partido
@@ -30,5 +31,8 @@ namespace Waterpulse.Logic
             store.Set(key, points);
             return true;
         }
+
+        // Borra el récord (opción del menú): el próximo partido vuelve a ser récord
+        public void Clear() => store.Delete(key);
     }
 }

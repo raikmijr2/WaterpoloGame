@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Waterpulse/Scenes/Menu.unity
+    guid: 7a7a5fc8368af3545bf38a40f82fbdef
+  - enabled: 1
     path: Assets/_Waterpulse/Scenes/Match.unity
     guid: 056b2dd75b824474ba9e7742671cd23c
   m_configObjects:

@@ -211,6 +211,17 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
+        public void Build_ResultsCanGoBackToMenu()
+        {
+            MatchSceneBuilder.Build();
+
+            var results = Object.FindFirstObjectByType<ResultsScreen>();
+            AssertRef(results, "menuConfig", AssetDatabase.LoadAssetAtPath<MenuConfigSO>(MenuSceneBuilder.ConfigPath));
+            Assert.IsNotNull(new SerializedObject(results).FindProperty("menuButton").objectReferenceValue, "botón Menú principal");
+            Assert.IsNotNull(new SerializedObject(results).FindProperty("restartButton").objectReferenceValue, "botón Tornar a jugar");
+        }
+
+        [Test]
         public void Build_StaminaCameraAndGoalIndicator()
         {
             MatchSceneBuilder.Build();

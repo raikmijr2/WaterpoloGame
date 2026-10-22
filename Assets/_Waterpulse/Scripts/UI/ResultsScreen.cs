@@ -1,6 +1,7 @@
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Waterpulse.Config;
 using Waterpulse.Core;
@@ -9,11 +10,12 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.UI
 {
     // Pantalla final (GDD sección 8): resultado, puntos por jugador con el MVP destacado, totales,
-    // pases completados, habilidades con éxito, récord personal y "Tornar a jugar" (botón o J/Enter).
-    // Textos visibles en catalán
+    // pases completados, habilidades con éxito, récord personal, "Tornar a jugar" (botón o J/Enter)
+    // y "Menú principal" (botón o Esc/Start). Textos visibles en catalán
     public class ResultsScreen : MonoBehaviour
     {
         [SerializeField] GameConfigSO config;
+        [SerializeField] MenuConfigSO menuConfig;
         [SerializeField] MatchFlow match;
         [SerializeField] MatchScoring scoring;
         [SerializeField] GameObject panel;
@@ -23,6 +25,7 @@ namespace Waterpulse.UI
         [SerializeField] Text awayColumn;
         [SerializeField] Text recordLabel;
         [SerializeField] Button restartButton;
+        [SerializeField] Button menuButton;
 
         [Header("Textos")]
         [SerializeField] string winsFormat = "Guanya {0}!";
@@ -38,6 +41,7 @@ namespace Waterpulse.UI
         [SerializeField] string[] roleNames = { "Atacant", "Organitzador", "Defensor", "Porter" };
 
         InputAction restart;
+        InputAction toMenu;
         readonly StringBuilder builder = new StringBuilder();
 
         void Awake()
@@ -46,7 +50,11 @@ namespace Waterpulse.UI
             restart.AddBinding("<Keyboard>/j");
             restart.AddBinding("<Keyboard>/enter");
             restart.AddBinding("<Gamepad>/buttonSouth");
+            toMenu = new InputAction("Menu", InputActionType.Button);
+            toMenu.AddBinding("<Keyboard>/escape");
+            toMenu.AddBinding("<Gamepad>/start");
             restartButton.onClick.AddListener(match.Restart);
+            menuButton.onClick.AddListener(GoToMenu);
             panel.SetActive(false);
         }
 
@@ -56,14 +64,23 @@ namespace Waterpulse.UI
         {
             GameEvents.MatchStateChanged -= OnStateChanged;
             restart.Disable();
+            toMenu.Disable();
         }
 
-        void OnDestroy() => restart.Dispose();
+        void OnDestroy()
+        {
+            restart.Dispose();
+            toMenu.Dispose();
+        }
 
         void Update()
         {
-            if (panel.activeSelf && restart.WasPressedThisFrame()) match.Restart();
+            if (!panel.activeSelf) return;
+            if (restart.WasPressedThisFrame()) match.Restart();
+            else if (toMenu.WasPressedThisFrame()) GoToMenu();
         }
+
+        void GoToMenu() => SceneManager.LoadScene(menuConfig.menuScene);
 
         void OnStateChanged(MatchState state)
         {
@@ -83,6 +100,7 @@ namespace Waterpulse.UI
 
             panel.SetActive(true);
             restart.Enable();
+            toMenu.Enable();
         }
 
         string TeamColumn(TeamSide team, string teamName)

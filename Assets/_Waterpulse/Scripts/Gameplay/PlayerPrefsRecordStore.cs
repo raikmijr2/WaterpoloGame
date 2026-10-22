@@ -22,5 +22,11 @@ namespace Waterpulse.Gameplay
             PlayerPrefs.SetInt(key, value);
             PlayerPrefs.Save();   // en Web hay que guardar explícitamente
         }
+
+        public void Delete(string key)
+        {
+            PlayerPrefs.DeleteKey(key);
+            PlayerPrefs.Save();
+        }
     }
 }
