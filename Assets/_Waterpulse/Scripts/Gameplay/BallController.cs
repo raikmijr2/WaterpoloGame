@@ -27,6 +27,7 @@ namespace Waterpulse.Gameplay
         readonly List<PlayerController> candidates = new List<PlayerController>();
         readonly List<Vector3> candidatePositions = new List<Vector3>();
         readonly HashSet<PlayerController> interceptRolled = new HashSet<PlayerController>();
+        readonly Dictionary<PlayerController, float> interceptClosest = new Dictionary<PlayerController, float>();
         float holderImmunityTimer;
         Vector3 flightStart;
         float flightDistance;
@@ -145,6 +146,8 @@ namespace Waterpulse.Gameplay
 
             float distance = FlatDistance(thief.Position, Holder.Position);
             if (distance > config.recoverRange) return RecoverResult.OutOfRange;
+            // De espaldas el poseedor protege la pelota: desde detrás no hay intento (ni espera ni penalización)
+            if (!RecoverGeometry.IsInFront(Holder.Position, Holder.Forward, thief.Position, config.recoverFrontAngle)) return RecoverResult.OutOfRange;
             if (holderImmunityTimer > 0f) return RecoverResult.Failed;
 
             float chance = RecoverOdds.Chance(distance, config.recoverCloseDistance, config.recoverRange,
@@ -209,6 +212,7 @@ namespace Waterpulse.Gameplay
             IsSpecialShot = false;
             ShotSaveReach = config.saveReach;
             interceptRolled.Clear();
+            interceptClosest.Clear();
             FlightKind = kind;
             FlightFrom = from;
             FlightTarget = target;
@@ -281,15 +285,32 @@ namespace Waterpulse.Gameplay
         }
 
         // Un rival cerca de la trayectoria puede quedársela: una tirada por rival y pase
+        // La tirada se hace cuando la pelota le llega al cuerpo o, si solo pasa cerca, en el punto más cercano
+        // del recorrido (cuando la distancia empieza a crecer). Así nunca se decide antes de tiempo
         bool TryIntercept()
         {
             var from = FlightFrom;
+            float bodyDistance = config.playerRadius + config.ballRadius;
             foreach (var p in players)
             {
                 if (p.Team == from.Team || interceptRolled.Contains(p)) continue;
-                if (FlatDistance(p.Position, body.position) > config.interceptRadius) continue;
+                float d = FlatDistance(p.Position, body.position);
+                bool tracked = interceptClosest.TryGetValue(p, out float closest);
+                if (!tracked && d > config.interceptRadius) continue;
+
+                float rollDistance;
+                if (d <= bodyDistance) rollDistance = d;
+                else if (tracked && d > closest) rollDistance = closest;
+                else
+                {
+                    interceptClosest[p] = tracked ? Mathf.Min(closest, d) : d;
+                    continue;
+                }
+
                 interceptRolled.Add(p);
-                if (UnityEngine.Random.value >= config.interceptChance) continue;
+                float chance = InterceptOdds.Chance(rollDistance, bodyDistance, config.interceptRadius,
+                                                    config.interceptChanceAtBody, config.interceptChanceAtEdge);
+                if (UnityEngine.Random.value >= chance) continue;
                 GiveTo(p);
                 GameEvents.RaiseInterception(p.gameObject, from.gameObject);
                 return true;

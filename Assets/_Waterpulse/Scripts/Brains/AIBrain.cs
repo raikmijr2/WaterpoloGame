@@ -183,7 +183,8 @@ namespace Waterpulse.Brains
             Vector3 spot = holder.Position + Flat(ownGoal - holder.Position).normalized * config.aiPressDistance;
             PlayerIntent intent = WithDash(Go(State.Press, spot, true));
 
-            bool inRange = Flat(holder.Position - self.Position).magnitude <= config.recoverRange;
+            bool inRange = Flat(holder.Position - self.Position).magnitude <= config.recoverRange
+                           && RecoverGeometry.IsInFront(holder.Position, holder.Forward, self.Position, config.recoverFrontAngle);
             if (decide && inRange && self.CanTryRecover && Random.value < teamAI.Difficulty.aggressiveness)
                 intent.Pass = true;
             return intent;

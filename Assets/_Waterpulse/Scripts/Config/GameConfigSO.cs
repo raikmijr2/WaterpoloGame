@@ -95,6 +95,8 @@ namespace Waterpulse.Config
         [Header("Recuperar (J sin pelota)")]
         [Tooltip("Distancia máxima al poseedor para intentar recuperar (m)")]
         public float recoverRange = 1.2f;
+        [Tooltip("Solo se puede robar desde delante del que lleva la pelota: arco frontal en grados (180 = su mitad de delante). De espaldas la protege")]
+        [Range(0f, 360f)] public float recoverFrontAngle = 180f;
         [Tooltip("A esta distancia o menos se aplica la probabilidad máxima (m)")]
         public float recoverCloseDistance = 0.8f;
         [Tooltip("Probabilidad al límite del alcance (0-1)")]
@@ -109,8 +111,10 @@ namespace Waterpulse.Config
         [Header("Intercepción de pases")]
         [Tooltip("Un pase que pasa a esta distancia de un rival puede ser interceptado (m)")]
         public float interceptRadius = 0.8f;
-        [Tooltip("Probabilidad de intercepción (una tirada por rival y pase)")]
-        [Range(0f, 1f)] public float interceptChance = 0.4f;
+        [Tooltip("Probabilidad de interceptar si la pelota le llega al cuerpo (una tirada por rival y pase)")]
+        [Range(0f, 1f)] public float interceptChanceAtBody = 0.9f;
+        [Tooltip("Probabilidad de interceptar si la pelota pasa justo en el borde del alcance")]
+        [Range(0f, 1f)] public float interceptChanceAtEdge = 0.3f;
 
         [Header("Cambio automático de jugador al defender")]
         [Tooltip("El otro jugador debe estar al menos esto más cerca de la pelota para cambiar (m)")]
