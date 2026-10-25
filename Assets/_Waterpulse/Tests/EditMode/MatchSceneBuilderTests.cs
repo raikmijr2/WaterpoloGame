@@ -202,12 +202,52 @@ namespace Waterpulse.Tests.EditMode
             var scorings = Object.FindObjectsByType<MatchScoring>(FindObjectsSortMode.None);
             Assert.AreEqual(1, scorings.Length, "MatchScoring");
             AssertRef(scorings[0], "config", scoringConfig);
+            AssertRef(scorings[0], "users", AssetDatabase.LoadAssetAtPath<UsersConfigSO>(MatchSceneBuilder.UsersConfigPath));
             AssertRef(scorings[0], "ball", Object.FindFirstObjectByType<BallController>());
 
+            // El resumen: tablas de los dos equipos, récord y botones, sin referencias vacías
             var results = Object.FindFirstObjectByType<ResultsScreen>();
             AssertRef(results, "scoring", scorings[0]);
-            foreach (var field in new[] { "homeColumn", "awayColumn", "recordLabel" })
-                Assert.IsNotNull(new SerializedObject(results).FindProperty(field).objectReferenceValue, field);
+            AssertNoMissingReferences(results);
+        }
+
+        [Test]
+        public void Build_HasMatchAudio_AndSoundOnEveryButton()
+        {
+            MatchSceneBuilder.Build();
+
+            var directors = Object.FindObjectsByType<Waterpulse.Audio.AudioDirector>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, directors.Length, "AudioDirector");
+            AssertRef(directors[0], "config", AssetDatabase.LoadAssetAtPath<AudioConfigSO>(SoundGenerator.ConfigPath));
+            Assert.AreEqual((int)Waterpulse.Audio.AudioScene.Match, new SerializedObject(directors[0]).FindProperty("scene").intValue);
+
+            foreach (var selectable in Object.FindObjectsByType<UnityEngine.UI.Selectable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (selectable is UnityEngine.UI.InputField) continue;
+                Assert.IsNotNull(selectable.GetComponent<Waterpulse.Audio.UiSound>(), selectable.name);
+            }
+        }
+
+        [Test]
+        public void Build_PauseMenuIsWiredAndHidden()
+        {
+            MatchSceneBuilder.Build();
+
+            var pauses = Object.FindObjectsByType<MatchPause>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, pauses.Length, "MatchPause");
+            AssertRef(pauses[0], "match", Object.FindFirstObjectByType<MatchFlow>());
+            AssertRef(pauses[0], "config", AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath));
+
+            var menus = Object.FindObjectsByType<PauseMenu>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, menus.Length, "PauseMenu");
+            AssertRef(menus[0], "pause", pauses[0]);
+            AssertNoMissingReferences(menus[0]);
+            Assert.AreEqual(1, Object.FindObjectsByType<OptionsMenu>(FindObjectsSortMode.None).Length, "opciones de la pausa");
+
+            var so = new SerializedObject(menus[0]);
+            Assert.IsFalse(((GameObject)so.FindProperty("overlay").objectReferenceValue).activeSelf, "la pausa empieza cerrada");
+            var pauseButton = (UnityEngine.UI.Button)so.FindProperty("pauseButton").objectReferenceValue;
+            Assert.AreEqual(UnityEngine.UI.Navigation.Mode.None, pauseButton.navigation.mode, "el botón II no se queda seleccionado");
         }
 
         [Test]
@@ -247,6 +287,17 @@ namespace Waterpulse.Tests.EditMode
             Assert.IsNotNull(target, $"falta {field}");
             var value = new SerializedObject(target).FindProperty(field).objectReferenceValue;
             Assert.AreEqual(expected, value, $"{target.GetType().Name}.{field}");
+        }
+
+        // Ninguna referencia del inspector se queda vacía (también las de las clases anidadas, como las tablas del resumen)
+        static void AssertNoMissingReferences(Object target)
+        {
+            var property = new SerializedObject(target).GetIterator();
+            while (property.NextVisible(true))
+            {
+                if (property.propertyType != SerializedPropertyType.ObjectReference || property.name == "m_Script") continue;
+                Assert.IsNotNull(property.objectReferenceValue, $"{target.GetType().Name}.{property.propertyPath}");
+            }
         }
     }
 }

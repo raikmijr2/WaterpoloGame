@@ -39,7 +39,13 @@ namespace Waterpulse.Config
         [Range(0f, 1f)] public float defaultVolume = 1f;
         [Tooltip("Espera desde el último cambio del deslizador hasta guardar el volumen, para no escribir en el navegador a cada paso (s)")]
         public float volumeSaveDelay = 0.5f;
-        [Tooltip("Clave con la que se guarda el volumen en el navegador")]
+        [Tooltip("Clave con la que se guarda el volumen general en el navegador")]
         public string volumeKey = "waterpulse.settings.volume";
+        [Tooltip("Volumen de la música la primera vez que se juega (0-1)")]
+        [Range(0f, 1f)] public float defaultMusicVolume = 0.8f;
+        public string musicVolumeKey = "waterpulse.settings.musicVolume";
+        [Tooltip("Volumen de los efectos (público, silbatos, agua, interfaz) la primera vez que se juega (0-1)")]
+        [Range(0f, 1f)] public float defaultEffectsVolume = 1f;
+        public string effectsVolumeKey = "waterpulse.settings.effectsVolume";
     }
 }

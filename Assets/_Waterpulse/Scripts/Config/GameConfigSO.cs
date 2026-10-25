@@ -215,5 +215,9 @@ namespace Waterpulse.Config
         public float slowBrakeDeceleration = 40f;
         [Tooltip("La IA rival hace dash si el objetivo está más lejos que esto (m)")]
         public float aiDashDistance = 4f;
+
+        [Header("Pausa")]
+        [Tooltip("Al continuar, el partido espera esto antes de seguir, para que la tecla con la que se confirma no sea un pase (s)")]
+        public float resumeDelay = 0.2f;
     }
 }

@@ -9,11 +9,13 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using Waterpulse.Abilities;
 using Waterpulse.AI;
+using Waterpulse.Audio;
 using Waterpulse.Brains;
 using Waterpulse.Config;
 using Waterpulse.Core;
 using Waterpulse.Gameplay;
 using Waterpulse.UI;
+using static Waterpulse.EditorTools.SharedPages;
 using static Waterpulse.EditorTools.UiFactory;
 
 namespace Waterpulse.EditorTools
@@ -31,6 +33,7 @@ namespace Waterpulse.EditorTools
         public const string XutTragolPath = RootDir + "/Config/Ability_XutTragol.asset";
         public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
         public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
+        public const string UsersConfigPath = RootDir + "/Config/UsersConfig.asset";
         internal const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -104,10 +107,12 @@ namespace Waterpulse.EditorTools
             BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false), abilities);
             BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true), abilities);
 
-            var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath), out var scoring);
+            var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath),
+                                         LoadOrCreate<UsersConfigSO>(UsersConfigPath), out var scoring, out var pause);
             BuildHumanControl(config, ball, mats);
             var cam = BuildCamera(config, pool, ball);
-            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, cam, pool);
+            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, pool);
+            BuildAudio(SoundGenerator.EnsureAudio(abilities.XutTragol, abilities.TorpedeBlau), AudioScene.Match);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             MenuSceneBuilder.RegisterBuildScenes();
@@ -418,7 +423,7 @@ namespace Waterpulse.EditorTools
         }
 
         static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool, EnergyConfigSO energy,
-                                           ScoringConfigSO scoringConfig, out MatchScoring scoring)
+                                           ScoringConfigSO scoringConfig, UsersConfigSO usersConfig, out MatchScoring scoring, out MatchPause pause)
         {
             var go = new GameObject("Match");
             var flow = go.AddComponent<MatchFlow>();
@@ -429,8 +434,20 @@ namespace Waterpulse.EditorTools
             SetRef(rewards, "config", energy);
             scoring = go.AddComponent<MatchScoring>();
             SetRef(scoring, "config", scoringConfig);
+            SetRef(scoring, "users", usersConfig);
             SetRef(scoring, "ball", ball);
+            pause = go.AddComponent<MatchPause>();
+            SetRef(pause, "config", c);
+            SetRef(pause, "match", flow);
             return flow;
+        }
+
+        // Sonido de la escena: música, público (en el partido), efectos e interfaz. Lo usa también el menú
+        internal static void BuildAudio(AudioConfigSO audio, AudioScene scene)
+        {
+            var director = new GameObject("Audio").AddComponent<AudioDirector>();
+            SetRef(director, "config", audio);
+            SetEnum(director, "scene", (int)scene);
         }
 
         // Control humano estilo FIFA: un único HumanBrain que ControlSwitcher asigna al jugador con la pelota
@@ -449,7 +466,7 @@ namespace Waterpulse.EditorTools
         }
 
         // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
-        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, Camera cam, PoolBounds pool)
+        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, PoolBounds pool)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -491,45 +508,125 @@ namespace Waterpulse.EditorTools
             SetRef(goalIndicator, "label", arrow);
             SetEnum(goalIndicator, "humanTeam", (int)TeamSide.Home);
 
-            // Pantalla final (se activa en Results)
-            var panel = new GameObject("ResultsPanel", typeof(RectTransform), typeof(Image));
-            panel.transform.SetParent(root, false);
-            var panelRect = panel.GetComponent<RectTransform>();
-            panelRect.anchorMin = Vector2.zero;
-            panelRect.anchorMax = Vector2.one;
-            panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
-            panel.GetComponent<Image>().color = PanelColor;
+            // Botón de pausa para ratón y táctil. Sin navegación: si quedara seleccionado, el A del mando (pase) lo pulsaría
+            var pauseButton = StyledButton<Button>(root, "PauseButton", "II", 44, Vector2.one, new Vector2(-70f, -60f), new Vector2(90f, 90f));
+            pauseButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            pauseButton.GetComponentInChildren<Text>().fontStyle = FontStyle.Bold;
 
-            var result = Label(panel.transform, "Result", 72, new Vector2(0.5f, 0.88f), Vector2.zero, new Vector2(1400f, 110f));
-            var winner = Label(panel.transform, "Winner", 52, new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(1400f, 80f));
+            BuildResults(canvasGo, c, menuConfig, flow, scoring);
+            BuildPauseMenu(canvasGo, menuConfig, flow, pause, pauseButton);   // la última: se dibuja encima de todo
 
-            // Puntos por jugador de cada equipo, con el MVP marcado, pases y habilidades
-            var homeColumn = Label(panel.transform, "HomeColumn", 34, new Vector2(0.3f, 0.5f), Vector2.zero, new Vector2(760f, 440f));
-            var awayColumn = Label(panel.transform, "AwayColumn", 34, new Vector2(0.7f, 0.5f), Vector2.zero, new Vector2(760f, 440f));
-            homeColumn.color = new Color(0.6f, 0.75f, 1f);
-            var record = Label(panel.transform, "Record", 44, new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1400f, 70f));
-            record.color = new Color(1f, 0.85f, 0.2f);
+            // Los botones necesitan un EventSystem que lea el Input System nuevo
+            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
 
-            // "Tornar a jugar" y "Menú principal", con el estilo de los botones del menú
-            var restartButton = StyledButton<Button>(panel.transform, "RestartButton", "Tornar a jugar", 44, new Vector2(0.5f, 0.12f), new Vector2(-290f, 0f), new Vector2(520f, 110f));
-            var menuButton = StyledButton<Button>(panel.transform, "MenuButton", "Menú principal", 44, new Vector2(0.5f, 0.12f), new Vector2(290f, 0f), new Vector2(520f, 110f));
+        // Resumen del partido (se activa en Results): marcador, ganador, una tabla por equipo, récord del usuario y botones
+        static void BuildResults(GameObject canvasGo, GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring)
+        {
+            var panel = StretchedImage(canvasGo.transform, "ResultsPanel", PanelColor);
+            panel.raycastTarget = true;   // tapa el partido
+            var t = panel.transform;
+            var score = Label(t, "Score", 84, new Vector2(0.5f, 0.9f), Vector2.zero, new Vector2(1600f, 110f));
+            score.fontStyle = FontStyle.Bold;
+            var winner = Label(t, "Winner", 52, new Vector2(0.5f, 0.81f), Vector2.zero, new Vector2(1400f, 80f));
+            winner.color = Yellow;
+            var record = Label(t, "Record", 40, new Vector2(0.5f, 0.17f), Vector2.zero, new Vector2(1600f, 60f));
+            var restartButton = StyledButton<Button>(t, "RestartButton", "Tornar a jugar", 44, new Vector2(0.5f, 0.08f), new Vector2(-290f, 0f), new Vector2(520f, 110f));
+            var menuButton = StyledButton<Button>(t, "MenuButton", "Menú principal", 44, new Vector2(0.5f, 0.08f), new Vector2(290f, 0f), new Vector2(520f, 110f));
 
             var results = canvasGo.AddComponent<ResultsScreen>();
             SetRef(results, "config", c);
             SetRef(results, "menuConfig", menuConfig);
             SetRef(results, "match", flow);
-            SetRef(results, "panel", panel);
-            SetRef(results, "resultLabel", result);
-            SetRef(results, "winnerLabel", winner);
             SetRef(results, "scoring", scoring);
-            SetRef(results, "homeColumn", homeColumn);
-            SetRef(results, "awayColumn", awayColumn);
+            SetRef(results, "panel", panel.gameObject);
+            SetRef(results, "scoreLabel", score);
+            SetRef(results, "winnerLabel", winner);
             SetRef(results, "recordLabel", record);
             SetRef(results, "restartButton", restartButton);
             SetRef(results, "menuButton", menuButton);
+            BuildTeamTable(results, "homeTable", t, new Vector2(0.27f, 0.48f), new Color(0.6f, 0.75f, 1f));
+            BuildTeamTable(results, "awayTable", t, new Vector2(0.73f, 0.48f), Color.white);
+        }
 
-            // Los botones necesitan un EventSystem que lea el Input System nuevo
-            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        // Tabla de un equipo en el resumen: una columna por dato, con una línea por jugador y el total
+        static void BuildTeamTable(ResultsScreen results, string field, Transform parent, Vector2 anchor, Color titleColor)
+        {
+            var box = Box(parent, field, anchor, new Vector2(860f, 480f));
+            var title = Label(box, "Title", 44, Top, new Vector2(0f, -20f), new Vector2(800f, 60f));
+            title.color = titleColor;
+            SetRef(results, field + ".title", title);
+            TableColumn(results, field + ".players", box, "Jugador", -270f, 280f);
+            TableColumn(results, field + ".goals", box, "Gols", -60f, 100f);
+            TableColumn(results, field + ".passes", box, "Pass.", 40f, 100f);
+            TableColumn(results, field + ".recoveries", box, "Recup.", 140f, 100f);
+            TableColumn(results, field + ".saves", box, "Atur.", 240f, 100f);
+            TableColumn(results, field + ".points", box, "Punts", 350f, 100f);
+            var abilities = Label(box, "Abilities", 28, Top, new Vector2(0f, -420f), new Vector2(800f, 40f));
+            abilities.color = SoftText;
+            SetRef(results, field + ".abilities", abilities);
+        }
+
+        static void TableColumn(ResultsScreen results, string field, Transform box, string header, float x, float width)
+        {
+            var title = Label(box, header + "Header", 28, Top, new Vector2(x, -90f), new Vector2(width, 40f));
+            title.text = header;
+            title.color = Yellow;
+            var column = Label(box, header + "Column", 32, Top, new Vector2(x, -135f), new Vector2(width, 260f));
+            column.alignment = TextAnchor.UpperCenter;
+            column.lineSpacing = 1.25f;
+            SetRef(results, field, column);
+        }
+
+        // Menú de pausa: pausa, opciones (sin récord), controles y confirmación para reiniciar o salir
+        static void BuildPauseMenu(GameObject canvasGo, MenuConfigSO menuConfig, MatchFlow flow, MatchPause pause, Button pauseButton)
+        {
+            var overlay = StretchedImage(canvasGo.transform, "PauseMenu", PanelColor);
+            overlay.raycastTarget = true;   // tapa el partido: los clics no llegan al botón II
+            var t = overlay.transform;
+
+            var rootPage = StretchedGroup(t, "PausePage");
+            var box = Box(rootPage.transform, "Box", Middle, new Vector2(700f, 540f));
+            Heading(box, "Pausa");
+            var resume = MenuButton<Button>(box, "ContinueButton", "Continuar", BoxButtonFont, Top, new Vector2(0f, -150f), BoxButtonSize);
+            var optionsButton = MenuButton<Button>(box, "OptionsButton", "Opcions", BoxButtonFont, Top, new Vector2(0f, -250f), BoxButtonSize);
+            var restart = MenuButton<Button>(box, "RestartButton", "Reiniciar partit", BoxButtonFont, Top, new Vector2(0f, -350f), BoxButtonSize);
+            var menu = MenuButton<Button>(box, "MenuButton", "Menú principal", BoxButtonFont, Top, new Vector2(0f, -450f), BoxButtonSize);
+
+            var optionsPage = StretchedGroup(t, "OptionsPage");
+            var options = Options(optionsPage.transform, Middle, false);
+            var controlsPage = StretchedGroup(t, "ControlsPage");
+            var controlsBack = Controls(controlsPage.transform, Middle);
+            var confirmPage = StretchedGroup(t, "ConfirmPage");
+            var confirm = Confirm(confirmPage.transform, Middle, string.Empty, "El partit en curs es perdrà.");
+
+            WireOptions(canvasGo.AddComponent<OptionsMenu>(), menuConfig, options);
+
+            var pauseMenu = canvasGo.AddComponent<PauseMenu>();
+            SetRef(pauseMenu, "config", menuConfig);
+            SetRef(pauseMenu, "pause", pause);
+            SetRef(pauseMenu, "match", flow);
+            SetRef(pauseMenu, "overlay", overlay.gameObject);
+            SetRef(pauseMenu, "pauseButton", pauseButton);
+            SetRef(pauseMenu, "rootPage", rootPage);
+            SetRef(pauseMenu, "optionsPage", optionsPage);
+            SetRef(pauseMenu, "controlsPage", controlsPage);
+            SetRef(pauseMenu, "confirmPage", confirmPage);
+            SetRef(pauseMenu, "continueButton", resume);
+            SetRef(pauseMenu, "optionsButton", optionsButton);
+            SetRef(pauseMenu, "restartButton", restart);
+            SetRef(pauseMenu, "menuButton", menu);
+            SetRef(pauseMenu, "optionsFirst", options.Master);
+            SetRef(pauseMenu, "controlsButton", options.Controls);
+            SetRef(pauseMenu, "optionsBackButton", options.Back);
+            SetRef(pauseMenu, "controlsBackButton", controlsBack);
+            SetRef(pauseMenu, "confirmYesButton", confirm.Yes);
+            SetRef(pauseMenu, "confirmNoButton", confirm.No);
+            SetRef(pauseMenu, "confirmQuestion", confirm.Question);
+
+            foreach (var page in new[] { rootPage, optionsPage, controlsPage, confirmPage })
+                page.gameObject.SetActive(false);
+            overlay.gameObject.SetActive(false);
         }
 
         static PhysicsMaterial LoadOrCreateBallPhysics(GameConfigSO c)

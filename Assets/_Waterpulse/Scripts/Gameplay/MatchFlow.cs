@@ -37,7 +37,11 @@ namespace Waterpulse.Gameplay
                 FullTimeDelay = config.fullTimeDelay,
             });
             machine.StateChanged += OnStateChanged;
-            machine.GoldenGoalStarted += () => GoldenGoalStarted?.Invoke();
+            machine.GoldenGoalStarted += () =>
+            {
+                GoldenGoalStarted?.Invoke();
+                GameEvents.RaiseGoldenGoalStarted();
+            };
         }
 
         void OnEnable() => GameEvents.Goal += OnGoal;

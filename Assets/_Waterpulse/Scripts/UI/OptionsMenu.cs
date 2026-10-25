@@ -1,46 +1,71 @@
 using UnityEngine;
 using UnityEngine.UI;
 using Waterpulse.Config;
+using Waterpulse.Core;
 using Waterpulse.Gameplay;
 using Waterpulse.Logic;
 
 namespace Waterpulse.UI
 {
-    // Opciones del menú: volumen general (se guarda y se aplica a todo el audio del juego), pantalla completa
-    // y récord personal (se ve y se puede borrar). Textos visibles en catalán
+    // Opciones (en el menú principal y en la pausa): volúmenes general, de música y de efectos, que se guardan,
+    // y pantalla completa. El general es AudioListener.volume; música y efectos van a AudioVolumes, que lee el sonido.
+    // Textos visibles en catalán
     public class OptionsMenu : MonoBehaviour
     {
         [SerializeField] MenuConfigSO config;
-        [SerializeField] ScoringConfigSO scoringConfig;
-        [SerializeField] Slider volumeSlider;
-        [SerializeField] Text volumeLabel;
+        [SerializeField] Slider masterSlider;
+        [SerializeField] Text masterLabel;
+        [SerializeField] Slider musicSlider;
+        [SerializeField] Text musicLabel;
+        [SerializeField] Slider effectsSlider;
+        [SerializeField] Text effectsLabel;
         [SerializeField] Button fullscreenButton;
         [SerializeField] Text fullscreenLabel;
-        [SerializeField] Text recordLabel;
-        [SerializeField] Button resetRecordButton;
 
         [Header("Textos")]
-        [SerializeField] string volumeFormat = "Volum general: {0} %";
+        [SerializeField] string masterFormat = "General: {0} %";
+        [SerializeField] string musicFormat = "Música: {0} %";
+        [SerializeField] string effectsFormat = "Efectes: {0} %";
         [SerializeField] string fullscreenOnText = "Pantalla completa: Sí";
         [SerializeField] string fullscreenOffText = "Pantalla completa: No";
-        [SerializeField] string recordFormat = "Rècord personal: {0} punts";
-        [SerializeField] string noRecordText = "Encara no hi ha rècord";
 
-        VolumeSetting volume;
-        RecordStorage record;
-        float saveTimer = -1f;   // < 0: no hay ningún cambio de volumen pendiente de guardar
+        // Un volumen: su deslizador, su texto y lo guardado. Cambia al momento y se guarda cuando el deslizador
+        // lleva un rato quieto, para no escribir en el navegador a cada paso
+        class VolumeRow
+        {
+            public Slider Slider;
+            public Text Label;
+            public string Format;
+            public VolumeSetting Setting;
+            public float SaveTimer = -1f;   // < 0: nada pendiente de guardar
+
+            public void Refresh() => Label.text = string.Format(Format, Mathf.RoundToInt(Slider.value * 100f));
+
+            public void Tick(float dt)
+            {
+                if (SaveTimer < 0f) return;
+                SaveTimer -= dt;
+                if (SaveTimer < 0f) Setting.Set(Slider.value);
+            }
+
+            public void Flush()
+            {
+                if (SaveTimer >= 0f) Setting.Set(Slider.value);
+            }
+        }
+
+        VolumeRow master;
+        VolumeRow music;
+        VolumeRow effects;
 
         void Awake()
         {
-            volume = new VolumeSetting(new PlayerPrefsSettingsStore(), config.volumeKey, config.defaultVolume);
-            record = new RecordStorage(new PlayerPrefsRecordStore(), scoringConfig.recordKey);
-
-            AudioListener.volume = volume.Value;   // el menú es la primera escena: aquí se aplica el volumen guardado
-            volumeSlider.SetValueWithoutNotify(volume.Value);
-            volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
+            var store = new PlayerPrefsSettingsStore();
+            master = CreateRow(masterSlider, masterLabel, masterFormat, new VolumeSetting(store, config.volumeKey, config.defaultVolume));
+            music = CreateRow(musicSlider, musicLabel, musicFormat, new VolumeSetting(store, config.musicVolumeKey, config.defaultMusicVolume));
+            effects = CreateRow(effectsSlider, effectsLabel, effectsFormat, new VolumeSetting(store, config.effectsVolumeKey, config.defaultEffectsVolume));
+            Apply();   // se aplican los volúmenes guardados al abrir la escena
             fullscreenButton.onClick.AddListener(ToggleFullscreen);
-            RefreshVolume(volume.Value);
-            RefreshRecord();
         }
 
         void Update()
@@ -48,39 +73,41 @@ namespace Waterpulse.UI
             // El navegador puede salir de la pantalla completa por su cuenta (Esc): el texto sigue el estado real
             fullscreenLabel.text = Screen.fullScreen ? fullscreenOnText : fullscreenOffText;
 
-            if (saveTimer < 0f) return;
-            saveTimer -= Time.unscaledDeltaTime;
-            if (saveTimer < 0f) volume.Set(volumeSlider.value);
+            // Tiempo sin escalar: en la pausa del partido el tiempo está parado
+            float dt = Time.unscaledDeltaTime;
+            master.Tick(dt);
+            music.Tick(dt);
+            effects.Tick(dt);
         }
 
-        // Al salir del menú no se pierde el último cambio
+        // Al salir de la escena no se pierde el último cambio
         void OnDestroy()
         {
-            if (saveTimer >= 0f) volume.Set(volumeSlider.value);
+            master?.Flush();
+            music?.Flush();
+            effects?.Flush();
         }
 
-        public void ResetRecord()
+        VolumeRow CreateRow(Slider slider, Text label, string format, VolumeSetting setting)
         {
-            record.Clear();
-            RefreshRecord();
+            var row = new VolumeRow { Slider = slider, Label = label, Format = format, Setting = setting };
+            slider.SetValueWithoutNotify(setting.Value);
+            slider.onValueChanged.AddListener(_ =>
+            {
+                row.SaveTimer = config.volumeSaveDelay;
+                row.Refresh();
+                Apply();
+            });
+            row.Refresh();
+            return row;
         }
 
-        // El volumen cambia al momento; se guarda cuando el deslizador lleva un rato quieto
-        void OnVolumeChanged(float value)
+        void Apply()
         {
-            AudioListener.volume = value;
-            RefreshVolume(value);
-            saveTimer = config.volumeSaveDelay;
+            AudioListener.volume = master.Slider.value;
+            AudioVolumes.Set(music.Slider.value, effects.Slider.value);
         }
 
         void ToggleFullscreen() => Screen.fullScreen = !Screen.fullScreen;
-
-        void RefreshVolume(float value) => volumeLabel.text = string.Format(volumeFormat, Mathf.RoundToInt(value * 100f));
-
-        void RefreshRecord()
-        {
-            recordLabel.text = record.HasRecord ? string.Format(recordFormat, record.Best) : noRecordText;
-            resetRecordButton.interactable = record.HasRecord;
-        }
     }
 }

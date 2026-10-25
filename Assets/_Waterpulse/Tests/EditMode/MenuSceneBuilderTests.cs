@@ -48,8 +48,53 @@ namespace Waterpulse.Tests.EditMode
                 AssertNoMissingReferences(component);
             }
             AssertRef(Object.FindFirstObjectByType<MenuCamera>(), "pool", Object.FindFirstObjectByType<PoolBounds>());
-            AssertRef(Object.FindFirstObjectByType<OptionsMenu>(), "scoringConfig",
-                      AssetDatabase.LoadAssetAtPath<ScoringConfigSO>(MatchSceneBuilder.ScoringConfigPath));
+
+            // Usuarios y rànquing: su config, la de puntuación (claves del récord) y nada vacío
+            var users = AssetDatabase.LoadAssetAtPath<UsersConfigSO>(MatchSceneBuilder.UsersConfigPath);
+            var scoring = AssetDatabase.LoadAssetAtPath<ScoringConfigSO>(MatchSceneBuilder.ScoringConfigPath);
+            Assert.IsNotNull(users, "UsersConfig.asset");
+            foreach (var component in new MonoBehaviour[] { Object.FindFirstObjectByType<UsersMenu>(), Object.FindFirstObjectByType<RankingView>() })
+            {
+                AssertRef(component, "config", users);
+                AssertRef(component, "scoringConfig", scoring);
+                AssertNoMissingReferences(component);
+            }
+            AssertRef(Object.FindFirstObjectByType<MenuFlow>(), "users", Object.FindFirstObjectByType<UsersMenu>());
+        }
+
+        [Test]
+        public void Build_HasMenuAudio_AndSoundOnEveryButton()
+        {
+            MenuSceneBuilder.Build();
+
+            var directors = Object.FindObjectsByType<Waterpulse.Audio.AudioDirector>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, directors.Length, "AudioDirector");
+            Assert.AreEqual((int)Waterpulse.Audio.AudioScene.Menu, new SerializedObject(directors[0]).FindProperty("scene").intValue);
+            Assert.IsNotNull(new SerializedObject(directors[0]).FindProperty("config").objectReferenceValue, "AudioConfig");
+
+            // Las filas de usuarios se clonan de la plantilla: también llevan sonido
+            foreach (var selectable in Object.FindObjectsByType<Selectable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (selectable is InputField) continue;
+                Assert.IsNotNull(selectable.GetComponent<Waterpulse.Audio.UiSound>(), selectable.name);
+            }
+        }
+
+        [Test]
+        public void Build_UsersPage_TemplateHiddenAndNameFieldWithoutNavigation()
+        {
+            MenuSceneBuilder.Build();
+
+            var so = new SerializedObject(Object.FindFirstObjectByType<UsersMenu>());
+            var slot = (UserSlot)so.FindProperty("slotTemplate").objectReferenceValue;
+            Assert.IsFalse(slot.gameObject.activeSelf, "la plantilla no se ve: se clona por usuario");
+            AssertNoMissingReferences(slot);
+
+            // Con el Input System, escribir W, A, S o D en el campo movería la selección si tuviera navegación
+            var input = (InputField)so.FindProperty("nameInput").objectReferenceValue;
+            Assert.AreEqual(Navigation.Mode.None, input.navigation.mode);
+            var users = AssetDatabase.LoadAssetAtPath<UsersConfigSO>(MatchSceneBuilder.UsersConfigPath);
+            Assert.AreEqual(users.maxNameLength, input.characterLimit, "longitud máxima del nombre");
         }
 
         [Test]

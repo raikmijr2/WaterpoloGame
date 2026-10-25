@@ -23,6 +23,7 @@ namespace Waterpulse.Brains
         readonly List<PlayerController> team = new List<PlayerController>();
         float switchCooldown;
         float manualLockTimer;
+        bool paused;   // en la pausa no se cambia de jugador
         InputAction switchAction;
 
         public PlayerController Controlled { get; private set; }
@@ -37,14 +38,18 @@ namespace Waterpulse.Brains
         void OnEnable()
         {
             ball.HolderChanged += OnHolderChanged;
+            GameEvents.PauseChanged += OnPauseChanged;
             switchAction.Enable();
         }
 
         void OnDisable()
         {
             ball.HolderChanged -= OnHolderChanged;
+            GameEvents.PauseChanged -= OnPauseChanged;
             switchAction.Disable();
         }
+
+        void OnPauseChanged(bool isPaused) => paused = isPaused;
 
         void OnDestroy() => switchAction.Dispose();
 
@@ -58,6 +63,7 @@ namespace Waterpulse.Brains
 
         void Update()
         {
+            if (paused) return;
             float dt = Time.deltaTime;
             if (switchCooldown > 0f) switchCooldown -= dt;
             if (manualLockTimer > 0f) manualLockTimer -= dt;

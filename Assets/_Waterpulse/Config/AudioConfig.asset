@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9afc835be2c7af449bd9255b04c3f59f, type: 3}
+  m_Name: AudioConfig
+  m_EditorClassIdentifier: Waterpulse.Config::Waterpulse.Config.AudioConfigSO
+  menuMusic: {fileID: 8300000, guid: e6b2bd495c87e394a9ad5c75554bcdf5, type: 3}
+  matchMusic: {fileID: 8300000, guid: 8285d088cc71d1542afd6a4d335fa62e, type: 3}
+  winJingle: {fileID: 8300000, guid: 23b52ecc9021cc84cbdff5d570b4008d, type: 3}
+  loseJingle: {fileID: 8300000, guid: 21af0e2e58f49274c80338fd9b47473f, type: 3}
+  whistleShort: {fileID: 8300000, guid: eecaa5acf9fee7347b958c29fd5a617f, type: 3}
+  whistleLong: {fileID: 8300000, guid: d0c4a58036378ae4ba0cb10f72e53193, type: 3}
+  periodBuzzer: {fileID: 8300000, guid: af1c27768346bfd4fa02d9735f268858, type: 3}
+  poolLoop: {fileID: 8300000, guid: db5ca2a09e8490f48b4258b7553dad52, type: 3}
+  crowdLoop: {fileID: 8300000, guid: a054c5e4ca1dd734eb90ab466a9f6b3a, type: 3}
+  crowdCheer: {fileID: 8300000, guid: ee4a912a7d9fbf3448a67f0ada9bc6de, type: 3}
+  crowdOoh: {fileID: 8300000, guid: 8c4d09a9e50523044b05d4dca96de447, type: 3}
+  passSplash: {fileID: 8300000, guid: a12ee1fa548ea8c4396597bc986afca3, type: 3}
+  shotSplash: {fileID: 8300000, guid: ab018593cb812e74aaffbda5e855ace5, type: 3}
+  catchSlap: {fileID: 8300000, guid: 1eeac897ab2ee29468b52a59275be771, type: 3}
+  steal: {fileID: 8300000, guid: 708f72d60bc4c9f498d34bc3c861c248, type: 3}
+  stealFail: {fileID: 8300000, guid: 781502fac241da747b80bdc79eb4887d, type: 3}
+  dash: {fileID: 8300000, guid: 3098e6f099ac933418fdd2d16e563cca, type: 3}
+  bounce: {fileID: 8300000, guid: 3b4e443443ea3fa459261dc9ac3f8bd6, type: 3}
+  save: {fileID: 8300000, guid: ec294a343889728438878571c5ffdff2, type: 3}
+  abilitySounds:
+  - ability: {fileID: 11400000, guid: afdf31afaf0cd55499a99163afb99081, type: 2}
+    clip: {fileID: 8300000, guid: 05fe1795db8ece54583c1d366c38e34e, type: 3}
+  - ability: {fileID: 11400000, guid: 9bdb0acc86bcfd1469c17724fd5af18e, type: 2}
+    clip: {fileID: 8300000, guid: 8bfad4be80d3f3249b5fdf2c81dd966f, type: 3}
+  uiMove: {fileID: 8300000, guid: 16a3218be1d94e04f95a56a0f08bc01c, type: 3}
+  uiConfirm: {fileID: 8300000, guid: 2d8409af11182e642aa9511914d26b4e, type: 3}
+  goalComments: []
+  saveComments: []
+  goldenGoalComments: []
+  fullTimeComments: []
+  musicLevel: 0.45
+  crowdLevel: 0.35
+  poolLevel: 0.3
+  effectsLevel: 0.85
+  uiLevel: 0.5
+  commentLevel: 1
+  pitchVariation: 0.08
+  effectVoices: 8
+  musicFadeOut: 1
+  ambienceCrossfade: 2
+  crowdReactionMaxDuration: 4
+  crowdReactionFadeOut: 0.6
+  goldenGoalWhistleDelay: 1.2
+  uiMinInterval: 0.04

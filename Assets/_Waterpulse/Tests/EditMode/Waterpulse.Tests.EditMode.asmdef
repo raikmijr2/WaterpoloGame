@@ -10,6 +10,7 @@
         "Waterpulse.Abilities",
         "Waterpulse.Brains",
         "Waterpulse.UI",
+        "Waterpulse.Audio",
         "Waterpulse.Editor",
         "UnityEngine.UI",
         "UnityEngine.TestRunner",

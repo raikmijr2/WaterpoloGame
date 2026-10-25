@@ -16,6 +16,12 @@ namespace Waterpulse.Core
         public static event Action<GameObject, string> AbilityUsed;          // jugador, nombre visible de la habilidad
         public static event Action<GameObject> ControlledPlayerChanged;      // jugador que pasa a controlar el humano
         public static event Action<GameObject> RecoverFailed;                // jugador que intenta robar con J y falla
+        public static event Action<bool> PauseChanged;                       // true al pausar el partido, false al continuar
+        public static event Action<GameObject> PassThrown;                   // pasador (al soltar la pelota; PassCompleted es al recibirla)
+        public static event Action<GameObject> ShotTaken;                    // tirador
+        public static event Action<GameObject> DashUsed;                     // jugador que hace el dash
+        public static event Action BallBounced;                              // la pelota en vuelo choca con un palo, una pared o un jugador
+        public static event Action GoldenGoalStarted;                        // se acaba el tiempo con empate: gol de oro
 
         public static void RaiseGoal(TeamSide scoringTeam, GameObject scorer) => Goal?.Invoke(scoringTeam, scorer);
         public static void RaiseSave(GameObject goalkeeper) => Save?.Invoke(goalkeeper);
@@ -27,6 +33,12 @@ namespace Waterpulse.Core
         public static void RaiseRecoverFailed(GameObject player) => RecoverFailed?.Invoke(player);
         public static void RaisePassCompleted(GameObject from, GameObject to) => PassCompleted?.Invoke(from, to);
         public static void RaisePossessionChanged(TeamSide team) => PossessionChanged?.Invoke(team);
+        public static void RaisePauseChanged(bool paused) => PauseChanged?.Invoke(paused);
+        public static void RaisePassThrown(GameObject passer) => PassThrown?.Invoke(passer);
+        public static void RaiseShotTaken(GameObject shooter) => ShotTaken?.Invoke(shooter);
+        public static void RaiseDashUsed(GameObject player) => DashUsed?.Invoke(player);
+        public static void RaiseBallBounced() => BallBounced?.Invoke();
+        public static void RaiseGoldenGoalStarted() => GoldenGoalStarted?.Invoke();
 
         // Limpia suscripciones al entrar en Play aunque el "domain reload" esté desactivado
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -42,6 +54,12 @@ namespace Waterpulse.Core
             AbilityUsed = null;
             ControlledPlayerChanged = null;
             RecoverFailed = null;
+            PauseChanged = null;
+            PassThrown = null;
+            ShotTaken = null;
+            DashUsed = null;
+            BallBounced = null;
+            GoldenGoalStarted = null;
         }
     }
 }

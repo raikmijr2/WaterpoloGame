@@ -54,11 +54,37 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
+        public void CountsGoalsRecoveriesAndSaves_PerPlayerAndTeam()
+        {
+            var stats = new MatchStats();
+            stats.Register(0, 0);
+            stats.Register(1, 0);
+            stats.Register(2, 1);
+            stats.OnGoal(0);
+            stats.OnGoal(0);
+            stats.OnGoal(2);
+            stats.OnRecovery(1);
+            stats.OnRecovery(1);
+            stats.OnSave(2);
+
+            Assert.AreEqual(2, stats.GoalsOf(0));
+            Assert.AreEqual(2, stats.TeamGoals(0));
+            Assert.AreEqual(1, stats.TeamGoals(1));
+            Assert.AreEqual(2, stats.RecoveriesOf(1));
+            Assert.AreEqual(2, stats.TeamRecoveries(0));
+            Assert.AreEqual(0, stats.TeamRecoveries(1));
+            Assert.AreEqual(1, stats.SavesOf(2));
+            Assert.AreEqual(1, stats.TeamSaves(1));
+        }
+
+        [Test]
         public void UnknownPlayer_IsIgnored()
         {
             var stats = new MatchStats();
             stats.OnPassCompleted(5);
+            stats.OnGoal(5);
             Assert.AreEqual(0, stats.PassesOf(5));
+            Assert.AreEqual(0, stats.GoalsOf(5));
         }
     }
 

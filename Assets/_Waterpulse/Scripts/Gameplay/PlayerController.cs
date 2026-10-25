@@ -23,6 +23,7 @@ namespace Waterpulse.Gameplay
         PlayerIntent intent;
         float recoverCooldownTimer;
         bool canAct = true;   // solo se obedece al cerebro mientras se juega (no en saques, goles ni final)
+        bool paused;          // ni en la pausa (el tiempo está parado, pero Update sigue leyendo el input)
         float boostTimer;
         Vector3 boostDirection;
         float boostMultiplier;
@@ -56,8 +57,20 @@ namespace Waterpulse.Gameplay
             body.interpolation = RigidbodyInterpolation.Interpolate;
         }
 
-        void OnEnable() => GameEvents.MatchStateChanged += OnMatchStateChanged;
-        void OnDisable() => GameEvents.MatchStateChanged -= OnMatchStateChanged;
+        void OnEnable()
+        {
+            GameEvents.MatchStateChanged += OnMatchStateChanged;
+            GameEvents.PauseChanged += OnPauseChanged;
+        }
+
+        void OnDisable()
+        {
+            GameEvents.MatchStateChanged -= OnMatchStateChanged;
+            GameEvents.PauseChanged -= OnPauseChanged;
+        }
+
+        void OnPauseChanged(bool isPaused) => paused = isPaused;
+
         void OnMatchStateChanged(MatchState state)
         {
             canAct = state == MatchState.Playing;
@@ -70,7 +83,7 @@ namespace Waterpulse.Gameplay
 
         void Update()
         {
-            intent = canAct && brain != null ? brain.GetIntent() : PlayerIntent.None;
+            intent = canAct && !paused && brain != null ? brain.GetIntent() : PlayerIntent.None;
             if (recoverCooldownTimer > 0f) recoverCooldownTimer -= Time.deltaTime;
 
             // Las pulsaciones duran un frame: se ejecutan aquí y no en FixedUpdate
@@ -142,6 +155,7 @@ namespace Waterpulse.Gameplay
             if (!stamina.TrySpendDash()) return;
             float multiplier = DashPower.SpeedMultiplier(FlatSpeed(), config.maxSpeed, config.dashSpeedMultiplier);
             StartBoost(AimDirection(), multiplier, config.dashDuration);
+            GameEvents.RaiseDashUsed(gameObject);
         }
 
         float FlatSpeed()

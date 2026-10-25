@@ -1,7 +1,7 @@
 {
     "name": "Waterpulse.Audio",
     "rootNamespace": "Waterpulse.Audio",
-    "references": ["Waterpulse.Core", "Waterpulse.Config"],
+    "references": ["Waterpulse.Core", "Waterpulse.Config", "UnityEngine.UI"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

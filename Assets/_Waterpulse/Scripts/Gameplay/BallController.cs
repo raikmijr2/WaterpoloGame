@@ -117,6 +117,7 @@ namespace Waterpulse.Gameplay
             Vector3 point = target != null ? target.Position : from.Position + aim * config.passNoTargetDistance;
 
             Launch(FlightKind.Pass, from, target, point, config.passSpeed, 0f);
+            GameEvents.RaisePassThrown(from.gameObject);
             return true;
         }
 
@@ -135,6 +136,7 @@ namespace Waterpulse.Gameplay
             Launch(FlightKind.Shot, from, null, point, config.shotSpeed * speedMultiplier, ShotOvershoot);
             IsSpecialShot = special;
             ShotSaveReach = saveReach;
+            GameEvents.RaiseShotTaken(from.gameObject);
             return true;
         }
 
@@ -364,6 +366,7 @@ namespace Waterpulse.Gameplay
             var touched = collision.collider.GetComponentInParent<PlayerController>();
             if (touched != null) LastToucher = touched;
             BecomeFree();
+            GameEvents.RaiseBallBounced();
         }
 
         static float FlatDistance(Vector3 a, Vector3 b)

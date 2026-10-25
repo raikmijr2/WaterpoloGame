@@ -32,7 +32,7 @@ namespace Waterpulse.Config
         public float torpedeSuccessGrace = 0.5f;
 
         [Header("Récord personal")]
-        [Tooltip("Clave con la que se guarda el récord en el navegador")]
-        public string recordKey = "waterpulse.record.homePoints";
+        [Tooltip("Clave con la que se guarda el récord de cada usuario en el navegador ({0} = id del usuario)")]
+        public string userRecordKeyFormat = "waterpulse.record.user.{0}";
     }
 }

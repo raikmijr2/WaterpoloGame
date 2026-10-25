@@ -7,10 +7,11 @@ using Waterpulse.Logic;
 namespace Waterpulse.Gameplay
 {
     // Escucha los eventos del partido y alimenta la puntuación (ScoreTracker), las estadísticas (MatchStats)
-    // y el récord (RecordStorage). La pantalla final lee de aquí
+    // y el récord del usuario de la sesión (UserRecords). La pantalla final lee de aquí
     public class MatchScoring : MonoBehaviour
     {
         [SerializeField] ScoringConfigSO config;
+        [SerializeField] UsersConfigSO users;
         [SerializeField] BallController ball;
 
         // Torpede Blau en curso: es un éxito si el jugador consigue la pelota o, si ya la tenía, su equipo no la pierde
@@ -26,15 +27,27 @@ namespace Waterpulse.Gameplay
         readonly List<BoostWatch> boosts = new List<BoostWatch>();
         ScoreTracker tracker;
         MatchStats stats;
-        RecordStorage record;
 
         public IReadOnlyList<PlayerController> Players => players;
+
+        // Récord (se calcula al acabar el tiempo). Sin usuario (convidat, o el partido abierto directamente en el editor)
+        // no se guarda nada
+        public bool HasUser { get; private set; }
+        public string UserName { get; private set; }
         public bool IsNewRecord { get; private set; }
-        public int Record => record.Best;
+        public int Record { get; private set; }
+        public int RankingPosition { get; private set; }
 
         public int PointsOf(PlayerController p) => tracker.PointsOf(IdOf(p));
+        public int GoalsOf(PlayerController p) => stats.GoalsOf(IdOf(p));
+        public int PassesOf(PlayerController p) => stats.PassesOf(IdOf(p));
+        public int RecoveriesOf(PlayerController p) => stats.RecoveriesOf(IdOf(p));
+        public int SavesOf(PlayerController p) => stats.SavesOf(IdOf(p));
         public int TeamPoints(TeamSide team) => tracker.TeamPoints((int)team);
+        public int TeamGoals(TeamSide team) => stats.TeamGoals((int)team);
         public int TeamPasses(TeamSide team) => stats.TeamPasses((int)team);
+        public int TeamRecoveries(TeamSide team) => stats.TeamRecoveries((int)team);
+        public int TeamSaves(TeamSide team) => stats.TeamSaves((int)team);
         public int TeamAbilitiesUsed(TeamSide team) => stats.TeamAbilitiesUsed((int)team);
         public int TeamAbilitiesSucceeded(TeamSide team) => stats.TeamAbilitiesSucceeded((int)team);
         public PlayerController Mvp => tracker.Mvp() is int id && id >= 0 ? players[id] : null;
@@ -55,7 +68,6 @@ namespace Waterpulse.Gameplay
                 ComboMax = config.comboMax,
             });
             stats = new MatchStats();
-            record = new RecordStorage(new PlayerPrefsRecordStore(), config.recordKey);
 
             // Orden fijo para la pantalla final: equipo y después rol
             players.AddRange(FindObjectsByType<PlayerController>(FindObjectsSortMode.None));
@@ -114,27 +126,35 @@ namespace Waterpulse.Gameplay
             stats.OnPassCompleted(id);
         }
 
+        // Intercepciones y robos con J cuentan como recuperaciones en el resumen
         void OnInterception(GameObject interceptor, GameObject passer)
         {
-            if (TryId(interceptor, out int id)) tracker.OnInterception(id);
+            if (!TryId(interceptor, out int id)) return;
+            tracker.OnInterception(id);
+            stats.OnRecovery(id);
         }
 
         void OnBallRecovered(GameObject player)
         {
-            if (TryId(player, out int id)) tracker.OnRecovery(id);
+            if (!TryId(player, out int id)) return;
+            tracker.OnRecovery(id);
+            stats.OnRecovery(id);
         }
 
         void OnSave(GameObject goalkeeper)
         {
-            if (TryId(goalkeeper, out int id)) tracker.OnSave(id);
+            if (!TryId(goalkeeper, out int id)) return;
+            tracker.OnSave(id);
+            stats.OnSave(id);
         }
 
-        // En propia puerta no hay puntos. Con el Xut del Tràngol: extra y habilidad con éxito
+        // En propia puerta no hay puntos ni gol para nadie. Con el Xut del Tràngol: extra y habilidad con éxito
         void OnGoal(TeamSide scoringTeam, GameObject scorer)
         {
             if (!TryId(scorer, out int id) || players[id].Team != scoringTeam) return;
             bool withAbility = ball.IsSpecialShot && ball.LastToucher == players[id];
             tracker.OnGoal(id, withAbility);
+            stats.OnGoal(id);
             if (withAbility) stats.OnAbilitySucceeded(id);
         }
 
@@ -152,10 +172,20 @@ namespace Waterpulse.Gameplay
             });
         }
 
-        // El récord se guarda al final del tiempo, antes de que se abra la pantalla de resultados
+        // El récord del usuario de la sesión se guarda al final del tiempo, antes de que se abra la pantalla de resultados
         void OnMatchStateChanged(MatchState state)
         {
-            if (state == MatchState.FullTime) IsNewRecord = record.Submit(TeamPoints(TeamSide.Home));
+            if (state != MatchState.FullTime) return;
+            var records = new UserRecords(users, config);
+            var user = PlayerSession.HasChosen && !PlayerSession.IsGuest ? records.Registry.Get(PlayerSession.UserId) : null;
+            HasUser = user != null;
+            if (!HasUser) return;
+
+            var record = records.RecordOf(user.Id);
+            UserName = user.Name;
+            IsNewRecord = record.Submit(TeamPoints(TeamSide.Home));
+            Record = record.Best;
+            RankingPosition = Leaderboard.PositionOf(records.Ranking(), user.Id);
         }
 
         int IdOf(PlayerController p) => p != null && ids.TryGetValue(p.gameObject, out int id) ? id : -1;
