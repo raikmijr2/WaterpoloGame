@@ -89,7 +89,9 @@ namespace Waterpulse.Gameplay
         {
             float lead = ball.HasPossession(TeamSide.Home) ? TeamSide.Home.AttackSign()
                        : ball.HasPossession(TeamSide.Away) ? TeamSide.Away.AttackSign() : 0f;
-            Vector3 target = ball.Position + Vector3.right * (lead * config.cameraLead);
+            // La posición dibujada (interpolada) de la pelota, no la física: esa solo cambia en cada paso de física
+            // (50 por segundo) y la cámara iría a saltos haciendo temblar toda la imagen
+            Vector3 target = ball.transform.position + Vector3.right * (lead * config.cameraLead);
             target.y = pool.WaterY;
 
             float distance = Distance();

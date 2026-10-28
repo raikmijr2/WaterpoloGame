@@ -38,6 +38,7 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 8bfad4be80d3f3249b5fdf2c81dd966f, type: 3}
   uiMove: {fileID: 8300000, guid: 16a3218be1d94e04f95a56a0f08bc01c, type: 3}
   uiConfirm: {fileID: 8300000, guid: 2d8409af11182e642aa9511914d26b4e, type: 3}
+  abilityNoEnergy: {fileID: 8300000, guid: beabf9d69e9a29b4aa47cc6f416d76f0, type: 3}
   goalComments: []
   saveComments: []
   goldenGoalComments: []

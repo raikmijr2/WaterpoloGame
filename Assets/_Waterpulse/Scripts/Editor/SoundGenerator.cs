@@ -56,6 +56,7 @@ namespace Waterpulse.EditorTools
             S("save", Save, c => c.save, (c, a) => c.save = a),
             S("ui_move", UiMove, c => c.uiMove, (c, a) => c.uiMove = a),
             S("ui_confirm", UiConfirm, c => c.uiConfirm, (c, a) => c.uiConfirm = a),
+            S("ability_no_energy", NoEnergy, c => c.abilityNoEnergy, (c, a) => c.abilityNoEnergy = a),
             S(XutTragolFile, XutTragol, null, null),
             S(TorpedeBlauFile, TorpedeBlau, null, null),
         };
@@ -386,6 +387,18 @@ namespace Waterpulse.EditorTools
             s.Tone(buffer, 0f, 0.07f, 880f, 880f, 0.5f, Wave.Triangle, 0.002f, 0.03f);
             s.Tone(buffer, 0.06f, 0.11f, 1320f, 1320f, 0.5f, Wave.Triangle, 0.002f, 0.04f);
             SoundSynth.Normalize(buffer, Medium);
+            return buffer;
+        }
+
+        // Sin energía: dos pitidos graves que bajan
+        static float[] NoEnergy()
+        {
+            var s = new SoundSynth(26);
+            var buffer = SoundSynth.Buffer(0.22f);
+            s.Tone(buffer, 0f, 0.09f, 330f, 300f, 0.4f, Wave.Square, 0.003f, 0.05f);
+            s.Tone(buffer, 0.1f, 0.12f, 250f, 220f, 0.4f, Wave.Square, 0.003f, 0.06f);
+            SoundSynth.LowPass(buffer, 2500f);
+            SoundSynth.Normalize(buffer, Soft);
             return buffer;
         }
 

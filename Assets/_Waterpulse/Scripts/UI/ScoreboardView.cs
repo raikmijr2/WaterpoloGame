@@ -6,36 +6,82 @@ using Waterpulse.Gameplay;
 
 namespace Waterpulse.UI
 {
-    // Marcador básico con el tiempo restante y los avisos del partido. Textos visibles en catalán
+    // Marcador de retransmisión (nombre y goles de cada equipo, tiempo o "GOL D'OR" en el centro y un punto bajo el equipo
+    // con la posesión) y bàner con los avisos del partido. Textos visibles en catalán
     public class ScoreboardView : MonoBehaviour
     {
         [SerializeField] GameConfigSO config;
         [SerializeField] MatchFlow match;
-        [SerializeField] Text scoreLabel;
+
+        [Header("Marcador")]
+        [SerializeField] Text homeNameLabel;
+        [SerializeField] Text homeScoreLabel;
+        [SerializeField] Text clockLabel;
+        [SerializeField] Text awayScoreLabel;
+        [SerializeField] Text awayNameLabel;
+        [Tooltip("Punto bajo el equipo que tiene la posesión")]
+        [SerializeField] GameObject homePossession;
+        [SerializeField] GameObject awayPossession;
+
+        [Header("Avisos")]
+        [Tooltip("Bàner que se ve solo mientras hay aviso")]
+        [SerializeField] GameObject messagePanel;
         [SerializeField] Text messageLabel;
         [SerializeField] string kickoffMessage = "Preparats…";
         [SerializeField] string goalMessage = "GOL!";
         [SerializeField] string fullTimeMessage = "Final del partit";
         [SerializeField] string goldenGoalLabel = "GOL D'OR";
 
-        void OnEnable() => GameEvents.MatchStateChanged += OnStateChanged;
-        void OnDisable() => GameEvents.MatchStateChanged -= OnStateChanged;
+        void Awake()
+        {
+            homeNameLabel.text = config.homeTeamName;
+            awayNameLabel.text = config.awayTeamName;
+            ShowPossession(null);
+            ShowMessage(string.Empty);
+        }
+
+        void OnEnable()
+        {
+            GameEvents.MatchStateChanged += OnStateChanged;
+            GameEvents.PossessionChanged += OnPossessionChanged;
+        }
+
+        void OnDisable()
+        {
+            GameEvents.MatchStateChanged -= OnStateChanged;
+            GameEvents.PossessionChanged -= OnPossessionChanged;
+        }
 
         void Update()
         {
-            string time = match.IsGoldenGoal ? goldenGoalLabel : FormatTime(match.TimeRemaining);
-            scoreLabel.text = $"{config.homeTeamName}  {match.HomeGoals} - {match.AwayGoals}  {config.awayTeamName}     {time}";
+            homeScoreLabel.text = match.HomeGoals.ToString();
+            awayScoreLabel.text = match.AwayGoals.ToString();
+            clockLabel.text = match.IsGoldenGoal ? goldenGoalLabel : FormatTime(match.TimeRemaining);
         }
 
         void OnStateChanged(MatchState state)
         {
             switch (state)
             {
-                case MatchState.Kickoff: messageLabel.text = kickoffMessage; break;
-                case MatchState.GoalScored: messageLabel.text = goalMessage; break;
-                case MatchState.FullTime: messageLabel.text = fullTimeMessage; break;
-                default: messageLabel.text = string.Empty; break;
+                case MatchState.Kickoff: ShowMessage(kickoffMessage); break;
+                case MatchState.GoalScored: ShowMessage(goalMessage); break;
+                case MatchState.FullTime: ShowMessage(fullTimeMessage); break;
+                default: ShowMessage(string.Empty); break;
             }
+        }
+
+        void OnPossessionChanged(TeamSide team) => ShowPossession(team);
+
+        void ShowPossession(TeamSide? team)
+        {
+            homePossession.SetActive(team == TeamSide.Home);
+            awayPossession.SetActive(team == TeamSide.Away);
+        }
+
+        void ShowMessage(string text)
+        {
+            messageLabel.text = text;
+            messagePanel.SetActive(!string.IsNullOrEmpty(text));
         }
 
         static string FormatTime(float seconds)

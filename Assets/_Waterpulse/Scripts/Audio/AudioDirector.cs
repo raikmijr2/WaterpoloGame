@@ -32,6 +32,7 @@ namespace Waterpulse.Audio
         float[] voiceGain;        // baja hasta 0 al apagar lo que pasa de su duración máxima
         int nextVoice;
         MatchState lastState;
+        GameObject controlled;    // jugador que controla el humano
         int playerGoals;
         int rivalGoals;
         float musicFade = 1f;     // 1 = sin fundido; baja hasta 0 al acabar el partido
@@ -69,6 +70,8 @@ namespace Waterpulse.Audio
             GameEvents.DashUsed += OnDashUsed;
             GameEvents.BallBounced += OnBallBounced;
             GameEvents.AbilityUsed += OnAbilityUsed;
+            GameEvents.AbilityNoEnergy += OnAbilityNoEnergy;
+            GameEvents.ControlledPlayerChanged += OnControlledChanged;
             GameEvents.PauseChanged += OnPauseChanged;
         }
 
@@ -89,6 +92,8 @@ namespace Waterpulse.Audio
             GameEvents.DashUsed -= OnDashUsed;
             GameEvents.BallBounced -= OnBallBounced;
             GameEvents.AbilityUsed -= OnAbilityUsed;
+            GameEvents.AbilityNoEnergy -= OnAbilityNoEnergy;
+            GameEvents.ControlledPlayerChanged -= OnControlledChanged;
             GameEvents.PauseChanged -= OnPauseChanged;
             AudioListener.pause = false;   // si se sale de la escena desde la pausa, la siguiente no debe empezar muda
         }
@@ -227,6 +232,14 @@ namespace Waterpulse.Audio
                 Effect(entry.clip);
                 return;
             }
+        }
+
+        void OnControlledChanged(GameObject player) => controlled = player;
+
+        // Solo el del humano: a la IA no hace falta avisarla
+        void OnAbilityNoEnergy(GameObject player)
+        {
+            if (player != null && player == controlled) Effect(config.abilityNoEnergy, false);
         }
 
         // La música y la interfaz siguen en la pausa (ignoran la pausa del listener); el resto se para

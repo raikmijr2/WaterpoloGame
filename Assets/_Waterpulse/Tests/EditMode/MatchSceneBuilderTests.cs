@@ -338,6 +338,38 @@ namespace Waterpulse.Tests.EditMode
             AssertNoMissingReferences(views[0]);
         }
 
+        [Test]
+        public void Build_WaterCoversOnlyTheField()
+        {
+            MatchSceneBuilder.Build();
+
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            var pool = Object.FindFirstObjectByType<PoolBounds>().transform;
+            foreach (string part in new[] { "Water", "Floor" })
+            {
+                var scale = pool.Find(part).localScale;
+                Assert.AreEqual(config.poolLength, scale.x, 1e-4f, part + ": largo del campo");
+                Assert.AreEqual(config.poolWidth, scale.z, 1e-4f, part + ": ancho del campo");
+            }
+        }
+
+        [Test]
+        public void Build_BroadcastHudIsWired()
+        {
+            MatchSceneBuilder.Build();
+
+            foreach (var view in new MonoBehaviour[] { Object.FindFirstObjectByType<ScoreboardView>(), Object.FindFirstObjectByType<PlayerHudView>(),
+                                                       Object.FindFirstObjectByType<AbilityAnnouncer>(), Object.FindFirstObjectByType<GoalIndicator>() })
+            {
+                Assert.IsNotNull(view);
+                AssertNoMissingReferences(view);
+            }
+
+            // Seleccionado, el botón se vuelve amarillo: el texto tiene que cambiar a oscuro
+            foreach (var button in Object.FindObjectsByType<UnityEngine.UI.Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                Assert.IsNotNull(button.GetComponent<SelectionTextColor>(), button.name);
+        }
+
         static void AssertRef(Object target, string field, Object expected)
         {
             Assert.IsNotNull(target, $"falta {field}");

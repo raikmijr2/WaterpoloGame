@@ -365,11 +365,13 @@ namespace Waterpulse.Gameplay
             return FlatDistance(p.Position, body.position) <= config.pickupRadius;
         }
 
+        // Con la pose física del jugador (no la interpolada que se dibuja, que va un paso por detrás):
+        // así la pelota y el jugador se interpolan igual y se mueven juntos sin temblar
         Vector3 HoldPoint(PlayerController owner)
         {
-            Vector3 forward = owner.Forward;
+            Vector3 forward = owner.BodyForward;
             forward.y = 0f;
-            Vector3 point = owner.Position + forward.normalized * config.ballHoldDistance;
+            Vector3 point = owner.BodyPosition + forward.normalized * config.ballHoldDistance;
             point.y = pool.WaterY;
             return point;
         }

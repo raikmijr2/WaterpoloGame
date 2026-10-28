@@ -29,5 +29,6 @@ Dels sons de Freesound s'ha fet servir la vista prèvia OGG d'alta qualitat. Del
 | `bounce.ogg` | impactMetal_medium_000 | Kenney | [Kenney: Impact Sounds](https://kenney.nl/assets/impact-sounds) |
 | `ui_move.ogg` | select_001 | Kenney | [Kenney: Interface Sounds](https://kenney.nl/assets/interface-sounds) |
 | `ui_confirm.ogg` | confirmation_001 | Kenney | ídem |
+| `ability_no_energy.ogg` | error_007 | Kenney | ídem |
 
 Per canviar un so, poseu-ne un altre amb el mateix nom (`.ogg`, `.wav` o `.mp3`) i torneu a generar les escenes. Si en falta algun, `Waterpulse/Generate Sounds` en crea un de provisional sintetitzat.

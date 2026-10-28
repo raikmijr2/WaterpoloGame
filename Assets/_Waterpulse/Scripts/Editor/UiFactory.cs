@@ -2,37 +2,70 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using Waterpulse.Audio;
+using Waterpulse.UI;
 
 namespace Waterpulse.EditorTools
 {
-    // Piezas de interfaz compartidas por los generadores, para que el menú y el partido tengan el mismo estilo:
-    // texto blanco con contorno negro, botones azules (el gorro del local) que se vuelven amarillos al seleccionarlos
-    // (el amarillo de los avisos del HUD) y paneles oscuros semitransparentes como el de la pantalla final
-    internal static class UiFactory
+    // Piezas de interfaz compartidas por los generadores, con el estilo "retransmisión deportiva" de todo el juego:
+    // fuente Barlow Condensed (títulos, botones, números) y Barlow (textos), paneles azul marino translúcidos con
+    // esquinas redondeadas, borde fino y franja amarilla arriba, y botones oscuros que se vuelven amarillos (con el texto
+    // oscuro) al seleccionarlos. Las formas salen de UiSpriteGenerator; sin ellas o sin las fuentes, todo sigue funcionando
+    public static class UiFactory
     {
-        public static readonly Color Blue = new Color(0.1f, 0.3f, 0.95f);
-        public static readonly Color Yellow = new Color(1f, 0.85f, 0.2f);
-        public static readonly Color PanelColor = new Color(0f, 0f, 0f, 0.75f);
-        static readonly Color BlueHighlight = new Color(0.25f, 0.45f, 1f);
-        static readonly Color BluePressed = new Color(0.05f, 0.18f, 0.6f);
-        static readonly Color DisabledTint = new Color(0.35f, 0.38f, 0.42f, 0.85f);
-        static readonly Color SliderTrack = new Color(0.05f, 0.1f, 0.2f, 0.9f);
+        public const string DisplayFontPath = MatchSceneBuilder.RootDir + "/Art/Fonts/BarlowCondensed-Bold.ttf";
+        public const string BodyFontPath = MatchSceneBuilder.RootDir + "/Art/Fonts/Barlow-SemiBold.ttf";
+
+        // Paleta
+        public static readonly Color Navy = new Color(0.04f, 0.08f, 0.16f);
+        public static readonly Color Yellow = new Color(1f, 0.82f, 0.18f);
+        public static readonly Color HomeBlue = new Color(0.12f, 0.38f, 0.95f);   // gorro del local
+        public static readonly Color AwayWhite = new Color(0.95f, 0.96f, 0.98f);  // gorro del visitante
+        public static readonly Color DarkText = new Color(0.05f, 0.09f, 0.18f);
+        public static readonly Color SoftText = new Color(0.78f, 0.84f, 0.92f);
+        public static readonly Color EnergyColor = new Color(1f, 0.8f, 0.15f);
+        public static readonly Color StaminaColor = new Color(0.25f, 0.85f, 1f);
+        public static readonly Color PanelColor = new Color(0.02f, 0.05f, 0.1f, 0.82f);   // capa que tapa el partido
+        static readonly Color BoxColor = new Color(0.04f, 0.08f, 0.16f, 0.9f);
+        static readonly Color BorderColor = new Color(1f, 1f, 1f, 0.14f);
+        static readonly Color TrackColor = new Color(1f, 1f, 1f, 0.14f);
+        static readonly Color ButtonNormal = new Color(0.1f, 0.18f, 0.34f);
+        static readonly Color ButtonHighlight = new Color(0.16f, 0.28f, 0.5f);
+        static readonly Color ButtonPressed = new Color(0.07f, 0.12f, 0.24f);
+        static readonly Color DisabledTint = new Color(0.3f, 0.33f, 0.38f, 0.8f);
         static readonly Color KnobHighlight = new Color(0.85f, 0.9f, 1f);
         static readonly Color KnobPressed = new Color(0.75f, 0.75f, 0.75f);
-        static readonly Color Red = new Color(0.6f, 0.12f, 0.15f);
-        static readonly Color RedHighlight = new Color(0.8f, 0.2f, 0.2f);
+        static readonly Color Red = new Color(0.62f, 0.12f, 0.16f);
+        static readonly Color RedHighlight = new Color(0.8f, 0.2f, 0.22f);
         static readonly Color RedPressed = new Color(0.45f, 0.08f, 0.1f);
-        static readonly Color FieldNormal = new Color(0.1f, 0.17f, 0.3f);
-        static readonly Color FieldHighlight = new Color(0.15f, 0.25f, 0.42f);
-        static readonly Color FieldSelected = new Color(0.18f, 0.32f, 0.55f);
-        static readonly Color PlaceholderText = new Color(0.65f, 0.7f, 0.78f);
+        static readonly Color FieldNormal = new Color(0.07f, 0.13f, 0.25f);
+        static readonly Color FieldHighlight = new Color(0.12f, 0.21f, 0.38f);
+        static readonly Color FieldSelected = new Color(0.15f, 0.27f, 0.48f);
+        static readonly Color PlaceholderText = new Color(0.6f, 0.66f, 0.75f);
+        static readonly Color TextOutline = new Color(0f, 0f, 0f, 0.55f);
+        static readonly Color ButtonShadowColor = new Color(0f, 0f, 0f, 0.35f);
+        static readonly Vector2 TextOutlineDistance = new Vector2(1.5f, -1.5f);
+        static readonly Vector2 ButtonShadow = new Vector2(0f, -4f);
         static readonly Vector2 FieldPadding = new Vector2(20f, 6f);
+        const float AccentHeight = 5f;     // franja amarilla de arriba de los paneles
+        const float AccentInset = 18f;
         const int CaretWidth = 3;
-        static readonly Vector2 ButtonShadow = new Vector2(0f, -6f);
         const float TintFadeDuration = 0.08f;
         const string KnobSprite = "UI/Skin/Knob.psd";
 
-        public static Text Label(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions)
+        static Font displayFont;
+        static Font bodyFont;
+
+        // Barlow Condensed para casi todo; Barlow (body) para textos largos o pequeños. Sin las fuentes, la de Unity
+        public static Font DisplayFont => displayFont != null ? displayFont : displayFont = LoadFont(DisplayFontPath);
+        public static Font BodyFont => bodyFont != null ? bodyFont : bodyFont = LoadFont(BodyFontPath);
+
+        static Font LoadFont(string path)
+        {
+            var font = AssetDatabase.LoadAssetAtPath<Font>(path);
+            return font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
+
+        public static Text Label(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions, bool body = false)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Text), typeof(Outline));
             go.transform.SetParent(parent, false);
@@ -42,34 +75,44 @@ namespace Waterpulse.EditorTools
             rt.anchoredPosition = position;
             rt.sizeDelta = dimensions;
             var text = go.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = body ? BodyFont : DisplayFont;
             text.fontSize = size;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Overflow;
-            go.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
+            var outline = go.GetComponent<Outline>();
+            outline.effectColor = TextOutline;
+            outline.effectDistance = TextOutlineDistance;
             return text;
         }
 
-        // Botón con el estilo del juego. T permite usar variantes de Button (por ejemplo, PressButton)
+        // Botón con el estilo del juego: oscuro con borde fino; seleccionado, amarillo con el texto oscuro.
+        // T permite usar variantes de Button (por ejemplo, PressButton)
         public static T StyledButton<T>(Transform parent, string name, string text, int fontSize, Vector2 anchor, Vector2 position, Vector2 size) where T : Button
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Shadow));
             go.transform.SetParent(parent, false);
             Place(go.GetComponent<RectTransform>(), anchor, position, size);
-            go.GetComponent<Shadow>().effectDistance = ButtonShadow;
+            var image = go.GetComponent<Image>();
+            Rounded(image, Color.white);   // blanca: el color lo pone el tinte del botón
+            var shadow = go.GetComponent<Shadow>();
+            shadow.effectDistance = ButtonShadow;
+            shadow.effectColor = ButtonShadowColor;
             var button = go.AddComponent<T>();
-            button.targetGraphic = go.GetComponent<Image>();   // imagen blanca: el color lo pone el tinte del botón
-            button.colors = Tint(Blue, BlueHighlight, BluePressed);
+            button.targetGraphic = image;
+            button.colors = Tint(ButtonNormal, ButtonHighlight, ButtonPressed);
             go.AddComponent<UiSound>();
+            Border(go.transform);
             var label = Label(go.transform, "Label", fontSize, new Vector2(0.5f, 0.5f), Vector2.zero, size);
             label.text = text;
+            var textColor = go.AddComponent<SelectionTextColor>();
+            MatchSceneBuilder.SetRef(textColor, "label", label);
             return button;
         }
 
-        // Deslizador con el estilo del juego: carril oscuro, relleno azul y tirador blanco que se vuelve amarillo al seleccionarlo
+        // Deslizador con el estilo del juego: carril en cápsula, relleno azul y tirador blanco que se vuelve amarillo al seleccionarlo
         public static Slider StyledSlider(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size)
         {
             var go = DefaultControls.CreateSlider(new DefaultControls.Resources { knob = AssetDatabase.GetBuiltinExtraResource<Sprite>(KnobSprite) });
@@ -80,8 +123,9 @@ namespace Waterpulse.EditorTools
             var slider = go.GetComponent<Slider>();
             slider.colors = Tint(Color.white, KnobHighlight, KnobPressed);
             go.AddComponent<UiSound>();
-            go.transform.Find("Background").GetComponent<Image>().color = SliderTrack;
-            slider.fillRect.GetComponent<Image>().color = Blue;
+            float trackHeight = size.y * 0.5f;   // el carril y el relleno ocupan la mitad central del deslizador
+            Pill(go.transform.Find("Background").GetComponent<Image>(), TrackColor, trackHeight);
+            Pill(slider.fillRect.GetComponent<Image>(), HomeBlue, trackHeight);
 
             // Tirador redondo (tan ancho como alto) que no se sale del carril; el relleno llega hasta él
             float knob = size.y;
@@ -105,7 +149,8 @@ namespace Waterpulse.EditorTools
             go.name = name;
             go.transform.SetParent(parent, false);
             Place(go.GetComponent<RectTransform>(), anchor, position, size);
-            go.GetComponent<Image>().color = Color.white;   // el color lo pone el tinte
+            Rounded(go.GetComponent<Image>(), Color.white);   // el color lo pone el tinte
+            Border(go.transform);
 
             var input = go.GetComponent<InputField>();
             var colors = Tint(FieldNormal, FieldHighlight, FieldSelected);
@@ -117,10 +162,9 @@ namespace Waterpulse.EditorTools
             input.caretColor = Color.white;
             input.caretWidth = CaretWidth;
 
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             foreach (var text in new[] { input.textComponent, (Text)input.placeholder })
             {
-                text.font = font;
+                text.font = BodyFont;
                 text.fontSize = fontSize;
                 text.alignment = TextAnchor.MiddleLeft;
                 var rt = text.rectTransform;
@@ -155,17 +199,99 @@ namespace Waterpulse.EditorTools
             return image;
         }
 
-        // Panel oscuro semitransparente, como el de la pantalla final
-        public static RectTransform Box(Transform parent, string name, Vector2 anchor, Vector2 size)
+        // Panel de retransmisión: azul marino translúcido, esquinas redondeadas, borde fino y (si accent) franja amarilla arriba
+        public static RectTransform Box(Transform parent, string name, Vector2 anchor, Vector2 size, bool accent = true)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             var rt = go.GetComponent<RectTransform>();
             Place(rt, anchor, Vector2.zero, size);
             var image = go.GetComponent<Image>();
-            image.color = PanelColor;
+            Rounded(image, BoxColor);
             image.raycastTarget = false;
+            Border(rt);
+            if (accent) Accent(rt, Yellow);
             return rt;
+        }
+
+        // Rectángulo redondeado de un color (bloques del marcador, cajas de las teclas…)
+        public static Image Panel(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Place(go.GetComponent<RectTransform>(), anchor, position, size);
+            var image = go.GetComponent<Image>();
+            Rounded(image, color);
+            image.raycastTarget = false;
+            return image;
+        }
+
+        // Barra en cápsula: carril claro y relleno de color. Devuelve el relleno: su anchorMax.x (0-1) es el valor
+        public static RectTransform Bar(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, Color color)
+        {
+            var track = new GameObject(name, typeof(RectTransform), typeof(Image));
+            track.transform.SetParent(parent, false);
+            Place(track.GetComponent<RectTransform>(), anchor, position, size);
+            Pill(track.GetComponent<Image>(), TrackColor, size.y);
+            var fill = StretchedImage(track.transform, "Fill", color);
+            Pill(fill, color, size.y);
+            fill.rectTransform.anchorMax = new Vector2(1f, 1f);
+            return fill.rectTransform;
+        }
+
+        // Icono de UiSpriteGenerator teñido de un color
+        public static Image Icon(Transform parent, string name, string sprite, Vector2 anchor, Vector2 position, float size, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Place(go.GetComponent<RectTransform>(), anchor, position, new Vector2(size, size));
+            var image = go.GetComponent<Image>();
+            image.sprite = UiSpriteGenerator.Load(sprite);
+            image.preserveAspect = true;
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        // Franja de color pegada al borde de arriba de un panel
+        public static Image Accent(Transform panel, Color color)
+        {
+            var go = new GameObject("Accent", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(panel, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(AccentInset, -AccentHeight);
+            rt.offsetMax = new Vector2(-AccentInset, 0f);
+            var image = go.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        static void Border(Transform parent)
+        {
+            var ring = StretchedImage(parent, "Border", BorderColor);
+            ring.sprite = UiSpriteGenerator.Load(UiSpriteGenerator.Ring);
+            ring.type = Image.Type.Sliced;
+            if (ring.sprite == null) ring.enabled = false;   // sin la forma, un borde cuadrado taparía el panel
+        }
+
+        static void Rounded(Image image, Color color)
+        {
+            image.sprite = UiSpriteGenerator.Load(UiSpriteGenerator.Rounded);
+            image.type = Image.Type.Sliced;
+            image.color = color;
+        }
+
+        // Cápsula: los bordes del 9-slice se escalan para que el extremo sea un semicírculo de la altura de la barra
+        static void Pill(Image image, Color color, float height)
+        {
+            image.sprite = UiSpriteGenerator.Load(UiSpriteGenerator.Pill);
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            if (image.sprite != null && height > 0f) image.pixelsPerUnitMultiplier = image.sprite.rect.height / height;
         }
 
         static ColorBlock Tint(Color normal, Color highlighted, Color pressed)

@@ -6,7 +6,8 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.Abilities
 {
     // Base de las habilidades: al pedirla el jugador (L), comprueba que se puede usar, gasta la energía,
-    // la ejecuta, salpica y avisa con AbilityUsed. Sin energía suficiente no pasa nada
+    // la ejecuta, salpica y avisa con AbilityUsed. Sin energía suficiente no se usa y avisa con AbilityNoEnergy
+    // (el HUD y el sonido se lo hacen saber al humano)
     [RequireComponent(typeof(PlayerController), typeof(PlayerEnergy))]
     public abstract class AbilityBehaviour : MonoBehaviour
     {
@@ -28,7 +29,12 @@ namespace Waterpulse.Abilities
 
         void TryActivate()
         {
-            if (Definition == null || !CanActivate() || !Energy.TrySpend(Definition.cost)) return;
+            if (Definition == null || !CanActivate()) return;
+            if (!Energy.TrySpend(Definition.cost))
+            {
+                GameEvents.RaiseAbilityNoEnergy(gameObject);
+                return;
+            }
             Activate();
             if (splash != null) splash.Play();
             GameEvents.RaiseAbilityUsed(gameObject, Definition.displayName);

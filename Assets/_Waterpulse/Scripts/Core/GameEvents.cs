@@ -22,6 +22,7 @@ namespace Waterpulse.Core
         public static event Action<GameObject> DashUsed;                     // jugador que hace el dash
         public static event Action BallBounced;                              // la pelota en vuelo choca con un palo, una pared o un jugador
         public static event Action GoldenGoalStarted;                        // se acaba el tiempo con empate: gol de oro
+        public static event Action<GameObject> AbilityNoEnergy;              // jugador que pide su habilidad sin energía suficiente
 
         public static void RaiseGoal(TeamSide scoringTeam, GameObject scorer) => Goal?.Invoke(scoringTeam, scorer);
         public static void RaiseSave(GameObject goalkeeper) => Save?.Invoke(goalkeeper);
@@ -39,6 +40,7 @@ namespace Waterpulse.Core
         public static void RaiseDashUsed(GameObject player) => DashUsed?.Invoke(player);
         public static void RaiseBallBounced() => BallBounced?.Invoke();
         public static void RaiseGoldenGoalStarted() => GoldenGoalStarted?.Invoke();
+        public static void RaiseAbilityNoEnergy(GameObject player) => AbilityNoEnergy?.Invoke(player);
 
         // Limpia suscripciones al entrar en Play aunque el "domain reload" esté desactivado
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -60,6 +62,7 @@ namespace Waterpulse.Core
             DashUsed = null;
             BallBounced = null;
             GoldenGoalStarted = null;
+            AbilityNoEnergy = null;
         }
     }
 }

@@ -16,10 +16,12 @@ namespace Waterpulse.UI
         [SerializeField] TeamSide humanTeam = TeamSide.Home;
         [SerializeField] RectTransform indicator;
         [SerializeField] Text label;
+        [Tooltip("Flechas (imágenes) a cada lado del texto: se ve la que apunta hacia la portería")]
+        [SerializeField] GameObject arrowRight;
+        [SerializeField] GameObject arrowLeft;
         [Tooltip("Separación del borde de la pantalla (fracción del viewport)")]
         [SerializeField] float edgeMargin = 0.06f;
-        [SerializeField] string rightText = "PORTERIA ►";
-        [SerializeField] string leftText = "◄ PORTERIA";
+        [SerializeField] string text = "PORTERIA";
 
         void LateUpdate()
         {
@@ -34,8 +36,9 @@ namespace Waterpulse.UI
             float y = Mathf.Clamp(vp.y, edgeMargin, 1f - edgeMargin);
             indicator.position = new Vector3(x * Screen.width, y * Screen.height, 0f);
             indicator.pivot = new Vector2(right ? 1f : 0f, 0.5f);
-            label.text = right ? rightText : leftText;
-            label.alignment = right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
+            label.text = text;
+            if (arrowRight.activeSelf != right) arrowRight.SetActive(right);
+            if (arrowLeft.activeSelf == right) arrowLeft.SetActive(!right);
         }
     }
 }

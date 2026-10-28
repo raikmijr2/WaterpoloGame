@@ -16,7 +16,6 @@ namespace Waterpulse.EditorTools
         internal static readonly Vector2 BoxAnchor = new Vector2(0.5f, 0.44f);   // en el menú, por debajo del logo
         internal static readonly Vector2 BoxButtonSize = new Vector2(600f, 80f);
         internal static readonly Vector2 ConfirmButtonSize = new Vector2(280f, 90f);
-        internal static readonly Color SoftText = new Color(0.8f, 0.85f, 0.9f);
         internal const int BoxButtonFont = 40;
         const float ControlsLineSpacing = 1.3f;
 
@@ -50,10 +49,11 @@ namespace Waterpulse.EditorTools
             return button;
         }
 
+        // Título de un panel, en mayúsculas como los rótulos de la tele
         internal static void Heading(Transform box, string text)
         {
             var heading = Label(box, "Heading", 56, Top, new Vector2(0f, -25f), new Vector2(800f, 70f));
-            heading.text = text;
+            heading.text = text.ToUpperInvariant();
             heading.color = Yellow;
         }
 
@@ -72,7 +72,7 @@ namespace Waterpulse.EditorTools
             w.Controls = MenuButton<Button>(box, "ControlsButton", "Controls", BoxButtonFont, Top, new Vector2(0f, -430f), BoxButtonSize);
             if (withRecord)
             {
-                w.RecordLabel = Label(box, "RecordLabel", 30, Top, new Vector2(0f, -490f), new Vector2(800f, 40f));
+                w.RecordLabel = Label(box, "RecordLabel", 30, Top, new Vector2(0f, -490f), new Vector2(800f, 40f), true);
                 w.RecordLabel.color = SoftText;
                 w.ResetRecord = MenuButton<Button>(box, "ResetRecordButton", "Esborrar el meu rècord", BoxButtonFont, Top, new Vector2(0f, -575f), BoxButtonSize);
             }
@@ -126,7 +126,7 @@ namespace Waterpulse.EditorTools
                 No = MenuButton<Button>(box, "NoButton", "No", BoxButtonFont, Top, new Vector2(170f, -240f), ConfirmButtonSize),
             };
             w.Question.text = question;
-            var note = Label(box, "Warning", 32, Top, new Vector2(0f, -110f), new Vector2(820f, 44f));
+            var note = Label(box, "Warning", 30, Top, new Vector2(0f, -110f), new Vector2(820f, 44f), true);
             note.text = warning;
             note.color = SoftText;
             return w;
@@ -138,7 +138,7 @@ namespace Waterpulse.EditorTools
             var heading = Label(box, name + "Title", 34, Top, new Vector2(x, -115f), new Vector2(400f, 50f));
             heading.text = title;
             heading.color = Yellow;
-            var column = Label(box, name, 32, Top, new Vector2(x, -175f), new Vector2(400f, 400f));
+            var column = Label(box, name, 30, Top, new Vector2(x, -175f), new Vector2(400f, 400f), true);
             column.alignment = TextAnchor.UpperCenter;
             column.lineSpacing = ControlsLineSpacing;
             column.text = string.Join("\n", rows);

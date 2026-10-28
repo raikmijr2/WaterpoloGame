@@ -31,6 +31,8 @@ namespace Waterpulse.EditorTools
         static readonly Vector2 OptionsAnchor = new Vector2(0.5f, 0.42f);   // el panel de opciones es más alto: un poco más abajo que los demás
         static readonly Vector2 MainButtonSize = new Vector2(620f, 90f);
         static readonly Vector2 LogoOutline = new Vector2(4f, -4f);
+        const float LogoUnderlineWidth = 2.7f;     // respecto al tamaño de letra del logo: algo más de la mitad del texto
+        const float LogoUnderlineHeight = 0.045f;
         static readonly Vector2 BadgeSize = new Vector2(140f, 44f);
         static readonly Vector2 UserCellSize = new Vector2(500f, 70f);
         static readonly Vector2 UserCellSpacing = new Vector2(40f, 12f);
@@ -67,6 +69,7 @@ namespace Waterpulse.EditorTools
             var usersConfig = LoadOrCreate<UsersConfigSO>(UsersConfigPath);
             var scoringConfig = LoadOrCreate<ScoringConfigSO>(ScoringConfigPath);
             var mats = new Materials();
+            UiSpriteGenerator.EnsureSprites();   // formas de la interfaz, antes de montar el menú
 
             // Fondo: la misma piscina que el partido, sin jugadores y con la pelota (solo decorado) en el centro
             BuildLight();
@@ -129,13 +132,13 @@ namespace Waterpulse.EditorTools
 
             // Logo pequeño de arriba, en todas las pantallas menos en la intro
             var header = StretchedGroup(root, "Header").gameObject;
-            Logo(header.transform, "Title", 120, Top, new Vector2(0f, -40f), new Vector2(1400f, 150f));
-            Subtitle(header.transform, 40, Top, new Vector2(0f, -190f));
+            Logo(header.transform, "Title", 120, Top, new Vector2(0f, -40f), new Vector2(1400f, 150f), -178f);
+            Subtitle(header.transform, 40, Top, new Vector2(0f, -192f));
 
             // Intro: logo grande que aparece con un fundido y "Prem qualsevol tecla" parpadeando
             var introPage = StretchedGroup(root, "IntroPage");
             var logo = StretchedGroup(introPage.transform, "Logo");
-            Logo(logo.transform, "Title", 200, IntroLogoAnchor, Vector2.zero, new Vector2(1600f, 240f));
+            Logo(logo.transform, "Title", 200, IntroLogoAnchor, Vector2.zero, new Vector2(1600f, 240f), -100f);
             Subtitle(logo.transform, 52, IntroLogoAnchor, new Vector2(0f, -150f));
             var prompt = Label(introPage.transform, "Prompt", 46, PromptAnchor, Vector2.zero, new Vector2(1200f, 70f));
             prompt.text = "Prem qualsevol tecla";
@@ -312,19 +315,20 @@ namespace Waterpulse.EditorTools
             return column;
         }
 
-        // Logo "WATERPULSE" con "PULSE" en el amarillo de los avisos
-        static void Logo(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions)
+        // Logo "WATERPULSE" con "PULSE" en el amarillo de los avisos y un subrayado amarillo, como un rótulo de la tele.
+        // underlineY: altura del subrayado (en el sistema del ancla del logo)
+        static void Logo(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions, float underlineY)
         {
             var logo = Label(parent, name, size, anchor, position, dimensions);
             logo.text = $"WATER<color=#{ColorUtility.ToHtmlStringRGB(Yellow)}>PULSE</color>";
-            logo.fontStyle = FontStyle.Bold;
             logo.GetComponent<Outline>().effectDistance = LogoOutline;
+            Panel(parent, name + "Underline", anchor, new Vector2(position.x, underlineY), new Vector2(size * LogoUnderlineWidth, size * LogoUnderlineHeight), Yellow);
         }
 
         static void Subtitle(Transform parent, int size, Vector2 anchor, Vector2 position)
         {
             var subtitle = Label(parent, "Subtitle", size, anchor, position, new Vector2(1200f, size * 1.5f));
-            subtitle.text = "Waterpolo arcade";
+            subtitle.text = "WATERPOLO ARCADE";
             subtitle.color = SoftText;
         }
 

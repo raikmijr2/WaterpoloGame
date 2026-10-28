@@ -76,6 +76,9 @@ namespace Waterpulse.Gameplay
         public event System.Action AbilityRequested;
         public PlayerIntent CurrentIntent => intent;
         public Vector3 Position => transform.position;
+        // Pose física (la del último paso de física, sin interpolar): para colocar cosas que también se mueven en FixedUpdate
+        public Vector3 BodyPosition => body != null ? body.position : transform.position;
+        public Vector3 BodyForward => body != null ? body.rotation * Vector3.forward : transform.forward;
         public Vector3 Forward => transform.forward;
         public Vector3 Velocity => body != null ? body.linearVelocity : Vector3.zero;
 

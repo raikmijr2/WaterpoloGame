@@ -61,6 +61,8 @@ namespace Waterpulse.Config
         public AudioClip uiMove;
         [Tooltip("Pulsar un botón")]
         public AudioClip uiConfirm;
+        [Tooltip("Pedir la habilidad sin energía suficiente (solo el jugador que controla el humano)")]
+        public AudioClip abilityNoEnergy;
 
         [Header("Comentarios en catalán (vacío = no suena nada; si hay varios, uno al azar)")]
         public AudioClip[] goalComments = new AudioClip[0];
