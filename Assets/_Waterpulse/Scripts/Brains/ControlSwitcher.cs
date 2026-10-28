@@ -17,10 +17,11 @@ namespace Waterpulse.Brains
         [SerializeField] HumanBrain human;
         [SerializeField] BallController ball;
         [SerializeField] TeamSide humanTeam = TeamSide.Home;
-        [Tooltip("Indicador del jugador controlado (se coloca bajo sus pies)")]
+        [Tooltip("Indicador del jugador controlado: arcos en el agua bajo sus pies que giran hacia donde mira")]
         [SerializeField] Transform marker;
 
         readonly List<PlayerController> team = new List<PlayerController>();
+        readonly List<Vector3> positions = new List<Vector3>();
         float switchCooldown;
         float manualLockTimer;
         bool paused;   // en la pausa no se cambia de jugador
@@ -104,6 +105,9 @@ namespace Waterpulse.Brains
             if (marker == null || Controlled == null) return;
             Vector3 p = Controlled.Position;
             marker.position = new Vector3(p.x, marker.position.y, p.z);
+            Vector3 facing = Controlled.Forward;
+            facing.y = 0f;
+            if (facing.sqrMagnitude > 0.0001f) marker.rotation = Quaternion.LookRotation(facing);
         }
 
         void OnHolderChanged(PlayerController previous, PlayerController next)
@@ -121,22 +125,13 @@ namespace Waterpulse.Brains
             switchCooldown = config.autoSwitchCooldown;
         }
 
-        // Jugador de campo propio más cercano a la pelota, sin contar a "exclude"
+        // Jugador de campo propio más cercano a la pelota, sin contar a "exclude" (el HUD usa el mismo cálculo)
         PlayerController NearestToBall(PlayerController exclude)
         {
-            PlayerController best = null;
-            float bestDistance = float.MaxValue;
-            foreach (var p in team)
-            {
-                if (p == exclude) continue;
-                float d = Vector3.Distance(p.Position, ball.Position);
-                if (d < bestDistance)
-                {
-                    bestDistance = d;
-                    best = p;
-                }
-            }
-            return best;
+            positions.Clear();
+            foreach (var p in team) positions.Add(p.Position);
+            int index = SwitchTargeting.Nearest(ball.Position, positions, team.IndexOf(exclude));
+            return index >= 0 ? team[index] : null;
         }
     }
 }

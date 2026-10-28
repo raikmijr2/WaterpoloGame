@@ -14,8 +14,12 @@ namespace Waterpulse.Gameplay
         [SerializeField] TeamSide team;
         [SerializeField] PlayerRole role;
         [SerializeField] BallController ball;
-        [Tooltip("Habilidad especial del jugador (vacío = sin habilidad)")]
-        [SerializeField] AbilityDefinitionSO ability;
+        // Todos los jugadores de campo tienen las dos habilidades, con la misma tecla (L): con la pelota, el tiro potente;
+        // sin ella, el acelerón (decidido por el usuario; antes dependía del rol). Los porteros no tienen ninguna
+        [Tooltip("Tiro potente: L con la pelota (vacío = sin habilidad)")]
+        [SerializeField] AbilityDefinitionSO powerShot;
+        [Tooltip("Acelerón: L sin la pelota (vacío = sin habilidad)")]
+        [SerializeField] AbilityDefinitionSO boost;
 
         Rigidbody body;
         IPlayerBrain defaultBrain;
@@ -45,7 +49,8 @@ namespace Waterpulse.Gameplay
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
-        public AbilityDefinitionSO Ability => ability;
+        public AbilityDefinitionSO PowerShot => powerShot;
+        public AbilityDefinitionSO Boost => boost;
         public BallController Ball => ball;
         public bool IsGoalkeeper => role == PlayerRole.Goalkeeper;
         public bool IsBoosting => boostTimer > 0f;

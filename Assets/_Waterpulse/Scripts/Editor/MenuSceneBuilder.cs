@@ -179,7 +179,7 @@ namespace Waterpulse.EditorTools
             // rànquing, opciones y cambiar de usuario
             var mainPage = StretchedGroup(root, "MainPage");
             var playerLabel = Label(mainPage.transform, "PlayerLabel", 40, Top, new Vector2(0f, -265f), new Vector2(1200f, 56f));
-            playerLabel.color = Yellow;
+            playerLabel.color = Volt;
             var singlePlayer = MenuButton<Button>(mainPage.transform, "SinglePlayerButton", "Partit individual", MainButtonFont, Middle, new Vector2(0f, 150f), MainButtonSize);
             var versus = MenuButton<Button>(mainPage.transform, "LocalVersusButton", "1 contra 1 local", MainButtonFont, Middle, new Vector2(0f, 40f), MainButtonSize);
             versus.interactable = false;
@@ -315,14 +315,14 @@ namespace Waterpulse.EditorTools
             return column;
         }
 
-        // Logo "WATERPULSE" con "PULSE" en el amarillo de los avisos y un subrayado amarillo, como un rótulo de la tele.
+        // Logo "WATERPULSE" con "PULSE" en el volt de los avisos y un subrayado volt, como un rótulo de la tele.
         // underlineY: altura del subrayado (en el sistema del ancla del logo)
         static void Logo(Transform parent, string name, int size, Vector2 anchor, Vector2 position, Vector2 dimensions, float underlineY)
         {
             var logo = Label(parent, name, size, anchor, position, dimensions);
-            logo.text = $"WATER<color=#{ColorUtility.ToHtmlStringRGB(Yellow)}>PULSE</color>";
+            logo.text = $"WATER<color=#{ColorUtility.ToHtmlStringRGB(Volt)}>PULSE</color>";
             logo.GetComponent<Outline>().effectDistance = LogoOutline;
-            Panel(parent, name + "Underline", anchor, new Vector2(position.x, underlineY), new Vector2(size * LogoUnderlineWidth, size * LogoUnderlineHeight), Yellow);
+            Panel(parent, name + "Underline", anchor, new Vector2(position.x, underlineY), new Vector2(size * LogoUnderlineWidth, size * LogoUnderlineHeight), Volt);
         }
 
         static void Subtitle(Transform parent, int size, Vector2 anchor, Vector2 position)
@@ -332,7 +332,7 @@ namespace Waterpulse.EditorTools
             subtitle.color = SoftText;
         }
 
-        // Etiqueta amarilla, un poco inclinada, en la esquina de un botón
+        // Etiqueta volt, un poco inclinada, en la esquina de un botón
         static void Badge(Transform button, string text)
         {
             var go = new GameObject("Badge", typeof(RectTransform), typeof(Image));
@@ -343,12 +343,12 @@ namespace Waterpulse.EditorTools
             rt.sizeDelta = BadgeSize;
             rt.localRotation = Quaternion.Euler(0f, 0f, -BadgeTilt);
             var image = go.GetComponent<Image>();
-            image.color = Yellow;
+            image.color = Volt;
             image.raycastTarget = false;
             var label = Label(go.transform, "Label", 28, Middle, Vector2.zero, BadgeSize);
             label.text = text;
             label.color = BadgeText;
-            Object.DestroyImmediate(label.GetComponent<Outline>());   // texto oscuro sobre amarillo: sin contorno
+            Object.DestroyImmediate(label.GetComponent<Outline>());   // texto oscuro sobre volt: sin contorno
         }
     }
 }

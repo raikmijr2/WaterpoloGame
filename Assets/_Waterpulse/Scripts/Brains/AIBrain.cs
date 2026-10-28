@@ -51,11 +51,11 @@ namespace Waterpulse.Brains
             energy = GetComponent<PlayerEnergy>();
         }
 
-        // La IA rival usa su habilidad si la dificultad lo permite, es del tipo pedido y tiene energía
+        // La IA rival usa la habilidad del tipo pedido si la dificultad lo permite y tiene energía
         bool CanUseAbility(AbilityKind kind)
         {
-            var ability = self.Ability;
-            return Aggressive && teamAI.Difficulty.useAbilities && ability != null && ability.kind == kind
+            var ability = kind == AbilityKind.PowerShot ? self.PowerShot : self.Boost;
+            return Aggressive && teamAI.Difficulty.useAbilities && ability != null
                    && energy != null && energy.CanSpend(ability.cost);
         }
 

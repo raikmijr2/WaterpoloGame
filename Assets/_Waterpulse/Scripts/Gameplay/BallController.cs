@@ -104,6 +104,18 @@ namespace Waterpulse.Gameplay
         {
             if (Holder != from || IsFrozen) return false;
 
+            PlayerController target = ReceiverFor(from, aim);
+            Vector3 point = target != null ? target.Position : from.Position + aim * config.passNoTargetDistance;
+
+            Launch(FlightKind.Pass, from, target, point, config.passSpeed, 0f);
+            GameEvents.RaisePassThrown(from.gameObject);
+            return true;
+        }
+
+        // Compañero de campo que recibiría un pase de "from" hacia "aim" (null si no hay nadie en el cono).
+        // Lo usa el pase y también el HUD, para enseñar el destino antes de pasar
+        public PlayerController ReceiverFor(PlayerController from, Vector3 aim)
+        {
             candidates.Clear();
             candidatePositions.Clear();
             foreach (var p in players)
@@ -113,12 +125,7 @@ namespace Waterpulse.Gameplay
                 candidatePositions.Add(p.Position);
             }
             int index = PassTargeting.SelectReceiver(from.Position, aim, candidatePositions, config.passConeAngle);
-            PlayerController target = index >= 0 ? candidates[index] : null;
-            Vector3 point = target != null ? target.Position : from.Position + aim * config.passNoTargetDistance;
-
-            Launch(FlightKind.Pass, from, target, point, config.passSpeed, 0f);
-            GameEvents.RaisePassThrown(from.gameObject);
-            return true;
+            return index >= 0 ? candidates[index] : null;
         }
 
         public bool Shoot(PlayerController from, Vector2 stick) => Shoot(from, stick, 1f, config.saveReach, false);

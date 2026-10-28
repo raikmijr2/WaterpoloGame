@@ -5,45 +5,47 @@ using Waterpulse.Gameplay;
 
 namespace Waterpulse.UI
 {
-    // Panel del jugador que controla el humano (abajo a la izquierda): su rol, la energía, con una marca en el coste de
-    // su habilidad y la tecla encendida cuando llega, y la estamina. Las barras se mueven suavemente hacia su valor.
-    // Si pide la habilidad sin energía, la tecla parpadea en rojo y da un pequeño latido. Sustituye al texto "Energia: N"
+    // Panel del jugador que controla el humano (abajo a la izquierda), como una ficha de retransmisión: rol abreviado en
+    // grande, nombre del rol, energía (barra con una marca en el coste del Xut del Tràngol y la cifra) y estamina en una línea
+    // fina. Con energía para el Xut, la barra se resalta un poco (EnergyHighlight). Las barras se mueven suavemente
+    // hacia su valor. Si pide la habilidad sin energía, el carril de la barra parpadea en rojo. Sustituye al texto "Energia: N"
     public class PlayerHudView : MonoBehaviour
     {
         [SerializeField] GameObject panel;
+        [Tooltip("Rol abreviado, en grande (ATA, ORG, DEF)")]
+        [SerializeField] Text roleShortLabel;
         [SerializeField] Text roleLabel;
         [Tooltip("Relleno de la barra de energía: su anchorMax.x es el valor (0-1)")]
         [SerializeField] RectTransform energyFill;
-        [Tooltip("Marca en el coste de la habilidad del jugador")]
+        [Tooltip("Carril de la barra de energía: parpadea en rojo si se pide la habilidad sin energía")]
+        [SerializeField] Image energyTrack;
+        [Tooltip("Cifra de la energía")]
+        [SerializeField] Text energyValueLabel;
+        [Tooltip("Marca en el coste del Xut del Tràngol")]
         [SerializeField] RectTransform abilityCostMark;
-        [Tooltip("Tecla de la habilidad: encendida si hay energía para usarla")]
-        [SerializeField] CanvasGroup abilityKey;
-        [Tooltip("Fondo de la tecla de la habilidad: parpadea en rojo si se pide sin energía")]
-        [SerializeField] Image abilityKeyBackground;
+        [SerializeField] EnergyHighlight energyHighlight;
         [SerializeField] Color noEnergyColor = new Color(0.9f, 0.2f, 0.22f);
-        [Tooltip("Duración del parpadeo en rojo de la tecla al pedir la habilidad sin energía (s)")]
+        [Tooltip("Duración del parpadeo en rojo del carril al pedir la habilidad sin energía (s)")]
         [SerializeField] float noEnergyFlashDuration = 0.5f;
-        [Tooltip("Cuánto crece la tecla al empezar el parpadeo (fracción de su tamaño)")]
-        [SerializeField] float noEnergyPulse = 0.25f;
         [SerializeField] RectTransform staminaFill;
         [Tooltip("Lo que se mueven las barras por segundo hacia su valor (fracción de la barra)")]
         [SerializeField] float barSpeed = 2.5f;
-        [Tooltip("Transparencia de la tecla de la habilidad cuando no hay energía para usarla")]
-        [Range(0f, 1f)] [SerializeField] float keyDimAlpha = 0.25f;
         [Tooltip("Nombres de rol en el orden de PlayerRole: Attacker, Playmaker, Defender, Goalkeeper")]
         [SerializeField] string[] roleNames = { "Atacant", "Organitzador", "Defensor", "Porter" };
+        [Tooltip("Abreviatura de cada rol, en el mismo orden (la misma que la mini placa)")]
+        [SerializeField] string[] roleShortNames = { "ATA", "ORG", "DEF", "POR" };
 
         PlayerController player;
         PlayerEnergy energy;
         PlayerStamina stamina;
         float shownEnergy;
         float shownStamina;
-        Color keyColor;
+        Color trackColor;
         float flashTimer;
 
         void Awake()
         {
-            keyColor = abilityKeyBackground.color;
+            trackColor = energyTrack.color;
             panel.SetActive(false);
         }
 
@@ -74,11 +76,11 @@ namespace Waterpulse.UI
 
             int role = (int)player.Role;
             roleLabel.text = (role >= 0 && role < roleNames.Length ? roleNames[role] : player.Role.ToString()).ToUpperInvariant();
+            roleShortLabel.text = role >= 0 && role < roleShortNames.Length ? roleShortNames[role] : string.Empty;
 
-            var ability = player.Ability;
+            var ability = player.PowerShot;
             bool hasAbility = ability != null && energy != null && energy.Max > 0f;
             abilityCostMark.gameObject.SetActive(hasAbility);
-            abilityKey.gameObject.SetActive(hasAbility);
             if (hasAbility)
             {
                 float cost = Mathf.Clamp01(ability.cost / energy.Max);
@@ -90,6 +92,7 @@ namespace Waterpulse.UI
             shownEnergy = energy != null ? energy.Normalized : 0f;
             shownStamina = stamina != null ? stamina.Normalized : 0f;
             flashTimer = 0f;
+            energyHighlight.Snap(IsReady());
             Apply();
         }
 
@@ -100,20 +103,19 @@ namespace Waterpulse.UI
             float step = barSpeed * Time.deltaTime;
             if (energy != null) shownEnergy = Mathf.MoveTowards(shownEnergy, energy.Normalized, step);
             if (stamina != null) shownStamina = Mathf.MoveTowards(shownStamina, stamina.Normalized, step);
+            energyHighlight.SetReady(IsReady());
             Apply();
         }
+
+        bool IsReady() => player.PowerShot != null && energy != null && energy.CanSpend(player.PowerShot.cost);
 
         void Apply()
         {
             SetFill(energyFill, shownEnergy);
             SetFill(staminaFill, shownStamina);
-            if (!abilityKey.gameObject.activeSelf) return;
-            // Parpadeo al pedirla sin energía: roja, a la vista aunque esté apagada, y con un latido que se deshincha
+            energyValueLabel.text = energy != null ? Mathf.FloorToInt(energy.Current).ToString() : string.Empty;
             float flash = noEnergyFlashDuration > 0f ? Mathf.Clamp01(flashTimer / noEnergyFlashDuration) : 0f;
-            bool ready = energy != null && energy.CanSpend(player.Ability.cost);
-            abilityKey.alpha = ready || flash > 0f ? 1f : keyDimAlpha;
-            abilityKeyBackground.color = Color.Lerp(keyColor, noEnergyColor, flash);
-            abilityKey.transform.localScale = Vector3.one * (1f + noEnergyPulse * flash);
+            energyTrack.color = Color.Lerp(trackColor, noEnergyColor, flash);
         }
 
         static void SetFill(RectTransform fill, float value) => fill.anchorMax = new Vector2(Mathf.Clamp01(value), fill.anchorMax.y);

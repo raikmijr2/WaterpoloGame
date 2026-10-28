@@ -1,4 +1,5 @@
 using UnityEngine;
+using Waterpulse.Config;
 using Waterpulse.Gameplay;
 
 namespace Waterpulse.Abilities
@@ -11,6 +12,7 @@ namespace Waterpulse.Abilities
 
         int trailFlightId = -1;
 
+        protected override AbilityDefinitionSO Definition => Player.PowerShot;
         protected override bool CanActivate() => Player.HasBall;
 
         protected override void Activate()

@@ -54,7 +54,7 @@ namespace Waterpulse.EditorTools
         {
             var heading = Label(box, "Heading", 56, Top, new Vector2(0f, -25f), new Vector2(800f, 70f));
             heading.text = text.ToUpperInvariant();
-            heading.color = Yellow;
+            heading.color = Volt;
         }
 
         // Opciones: volúmenes (general, música y efectos), pantalla completa y controles; en el menú principal, también
@@ -132,12 +132,12 @@ namespace Waterpulse.EditorTools
             return w;
         }
 
-        // Columna de la tabla de controles: título en amarillo y una línea por acción
+        // Columna de la tabla de controles: título en volt y una línea por acción
         static void ControlsColumn(Transform box, string name, float x, string title, params string[] rows)
         {
             var heading = Label(box, name + "Title", 34, Top, new Vector2(x, -115f), new Vector2(400f, 50f));
             heading.text = title;
-            heading.color = Yellow;
+            heading.color = Volt;
             var column = Label(box, name, 30, Top, new Vector2(x, -175f), new Vector2(400f, 400f), true);
             column.alignment = TextAnchor.UpperCenter;
             column.lineSpacing = ControlsLineSpacing;

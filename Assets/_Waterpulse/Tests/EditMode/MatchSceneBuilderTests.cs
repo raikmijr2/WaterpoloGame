@@ -157,7 +157,7 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_AssignsAbilitiesByRole()
+        public void Build_EveryFieldPlayerHasBothAbilities()
         {
             MatchSceneBuilder.Build();
 
@@ -172,7 +172,8 @@ namespace Waterpulse.Tests.EditMode
             {
                 if (p.IsGoalkeeper)
                 {
-                    Assert.IsNull(p.Ability, p.name);
+                    Assert.IsNull(p.PowerShot, p.name);
+                    Assert.IsNull(p.Boost, p.name);
                     Assert.IsNull(p.GetComponent<AbilityBehaviour>(), p.name);
                     continue;
                 }
@@ -181,10 +182,11 @@ namespace Waterpulse.Tests.EditMode
                 Assert.IsNotNull(energy, p.name);
                 AssertRef(energy, "config", energyConfig);
 
-                bool attacker = p.Role == PlayerRole.Attacker;
-                Assert.AreEqual(attacker ? xut : torpede, p.Ability, p.name);
-                Assert.AreEqual(attacker, p.GetComponent<XutTragolAbility>() != null, p.name + " Xut");
-                Assert.AreEqual(!attacker, p.GetComponent<TorpedeBlauAbility>() != null, p.name + " Torpede");
+                // Todos, sea cual sea su rol: L con la pelota = Xut del Tràngol, sin ella = Torpede Blau
+                Assert.AreEqual(xut, p.PowerShot, p.name);
+                Assert.AreEqual(torpede, p.Boost, p.name);
+                Assert.IsNotNull(p.GetComponent<XutTragolAbility>(), p.name + " Xut");
+                Assert.IsNotNull(p.GetComponent<TorpedeBlauAbility>(), p.name + " Torpede");
             }
 
             Assert.AreEqual(1, Object.FindObjectsByType<EnergyRewards>(FindObjectsSortMode.None).Length, "EnergyRewards");
@@ -262,7 +264,7 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_StaminaCameraAndGoalIndicator()
+        public void Build_StaminaAndCamera()
         {
             MatchSceneBuilder.Build();
 
@@ -277,9 +279,7 @@ namespace Waterpulse.Tests.EditMode
             AssertRef(Object.FindFirstObjectByType<MatchCamera>(), "ball", Object.FindFirstObjectByType<BallController>());
             AssertRef(Object.FindFirstObjectByType<HumanBrain>(), "config", config);
 
-            var indicators = Object.FindObjectsByType<GoalIndicator>(FindObjectsSortMode.None);
-            Assert.AreEqual(1, indicators.Length, "flecha de portería");
-            AssertRef(indicators[0], "viewCamera", Object.FindFirstObjectByType<Camera>());
+            Assert.IsNull(GameObject.Find("GoalIndicator"), "sin flecha de portería (quitada a petición del usuario)");
         }
 
         [Test]
@@ -339,6 +339,29 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
+        public void Build_PlayerMarkersAreWired()
+        {
+            MatchSceneBuilder.Build();
+
+            var views = Object.FindObjectsByType<PlayerMarkersView>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, views.Length, "marcas sobre los jugadores");
+            AssertRef(views[0], "ball", Object.FindFirstObjectByType<BallController>());
+            AssertNoMissingReferences(views[0]);
+            var plate = Object.FindFirstObjectByType<PlayerPlate>(FindObjectsInactive.Include);
+            Assert.IsNotNull(plate, "plantilla de la mini placa");
+            Assert.IsFalse(plate.gameObject.activeSelf, "la plantilla no se ve: se copia una por jugador");
+            AssertNoMissingReferences(plate);
+
+            // Arcos en el agua bajo el jugador controlado (sustituyen al triángulo rojo)
+            var marker = GameObject.Find("ControlMarker");
+            Assert.IsNotNull(marker);
+            var arcs = marker.GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(arcs, "sprite de los arcos");
+            Assert.IsNotNull(arcs.sprite);
+            Assert.IsNull(marker.GetComponent<MeshRenderer>(), "ya no es el triángulo");
+        }
+
+        [Test]
         public void Build_WaterCoversOnlyTheField()
         {
             MatchSceneBuilder.Build();
@@ -359,7 +382,7 @@ namespace Waterpulse.Tests.EditMode
             MatchSceneBuilder.Build();
 
             foreach (var view in new MonoBehaviour[] { Object.FindFirstObjectByType<ScoreboardView>(), Object.FindFirstObjectByType<PlayerHudView>(),
-                                                       Object.FindFirstObjectByType<AbilityAnnouncer>(), Object.FindFirstObjectByType<GoalIndicator>() })
+                                                       Object.FindFirstObjectByType<AbilityAnnouncer>() })
             {
                 Assert.IsNotNull(view);
                 AssertNoMissingReferences(view);

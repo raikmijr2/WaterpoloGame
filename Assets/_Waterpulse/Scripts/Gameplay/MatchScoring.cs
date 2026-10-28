@@ -162,8 +162,9 @@ namespace Waterpulse.Gameplay
         {
             if (!TryId(player, out int id)) return;
             stats.OnAbilityUsed(id);
-            var ability = players[id].Ability;
-            if (ability == null || ability.kind != AbilityKind.Boost) return;
+            // Solo el Torpede se vigila para saber si sale bien (el Xut sale bien si es gol)
+            var ability = players[id].Boost;
+            if (ability == null || ability.displayName != abilityName) return;
             boosts.Add(new BoostWatch
             {
                 Player = players[id],

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace Waterpulse.UI
 {
     // Color del texto de un botón según su estado: oscuro (y sin contorno) cuando está seleccionado, porque el fondo se
-    // vuelve amarillo; claro en el resto; apagado si está desactivado
+    // vuelve volt; claro en el resto; apagado si está desactivado
     [RequireComponent(typeof(Selectable))]
     public class SelectionTextColor : MonoBehaviour
     {

@@ -19,9 +19,17 @@ namespace Waterpulse.EditorTools
         public const string Bolt = "icon_bolt";      // energía
         public const string Wave = "icon_wave";      // estamina
         public const string Arrow = "icon_arrow";    // flecha hacia la portería
+        public const string Chevron = "icon_chevron";   // flecha hacia abajo sobre quien lleva la pelota
+        public const string Corner = "corner";          // esquina de las marcas del destino del pase o del cambio
+        public const string ControlArcs = "control_arcs";   // tres arcos y una punta en el agua bajo el jugador controlado
         const int Supersample = 4;                   // muestras por lado de cada píxel (bordes suaves)
         const float CornerRadius = 16f;
         const float RingThickness = 3f;
+        // Arcos del jugador controlado (textura de 256 px; la punta, arriba, es hacia donde mira)
+        const float ArcsRadius = 100f;
+        const float ArcsThickness = 8f;
+        const float ArcsGapDegrees = 26f;
+        const float CornerThickness = 5f;
 
         class Shape
         {
@@ -39,10 +47,15 @@ namespace Waterpulse.EditorTools
             new Shape { Name = Bolt, Size = 64, Inside = (x, y) => InPolygon(x, y, BoltPoints) },
             new Shape { Name = Wave, Size = 64, Inside = (x, y) => OnWave(x, y, 42f) || OnWave(x, y, 22f) },
             new Shape { Name = Arrow, Size = 64, Inside = (x, y) => InPolygon(x, y, ArrowPoints) },
+            new Shape { Name = Chevron, Size = 64, Inside = (x, y) => InPolygon(x, y, ChevronPoints) },
+            new Shape { Name = Corner, Size = 32, Inside = (x, y) => x <= CornerThickness || y >= 32f - CornerThickness },
+            new Shape { Name = ControlArcs, Size = 256, Inside = OnControlArcs },
         };
 
         static readonly Vector2[] BoltPoints = { new Vector2(40f, 62f), new Vector2(14f, 29f), new Vector2(30f, 29f), new Vector2(21f, 2f), new Vector2(51f, 37f), new Vector2(35f, 37f), new Vector2(53f, 62f) };
         static readonly Vector2[] ArrowPoints = { new Vector2(14f, 8f), new Vector2(58f, 32f), new Vector2(14f, 56f) };
+        static readonly Vector2[] ChevronPoints = { new Vector2(8f, 50f), new Vector2(56f, 50f), new Vector2(32f, 14f) };
+        static readonly Vector2[] ArcsPointer = { new Vector2(114f, 234f), new Vector2(142f, 234f), new Vector2(128f, 254f) };
 
         [MenuItem("Waterpulse/Generate UI Sprites", priority = 3)]
         static void GenerateFromMenu()
@@ -137,6 +150,16 @@ namespace Waterpulse.EditorTools
                 if ((a.y > y) != (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inside = !inside;
             }
             return inside;
+        }
+
+        // Tres arcos alrededor del centro con un hueco delante (arriba), a 120° entre sí, y una punta en el hueco de delante
+        static bool OnControlArcs(float x, float y)
+        {
+            if (InPolygon(x, y, ArcsPointer)) return true;
+            float dx = x - 128f, dy = y - 128f;
+            if (Mathf.Abs(Mathf.Sqrt(dx * dx + dy * dy) - ArcsRadius) > ArcsThickness * 0.5f) return false;
+            float angle = Mathf.Repeat(Mathf.Atan2(dy, dx) * Mathf.Rad2Deg - 90f, 120f);   // 0 = centro de un hueco
+            return angle > ArcsGapDegrees * 0.5f && angle < 120f - ArcsGapDegrees * 0.5f;
         }
 
         // Onda de grosor fijo entre x = 6 y x = 58, con los extremos redondos

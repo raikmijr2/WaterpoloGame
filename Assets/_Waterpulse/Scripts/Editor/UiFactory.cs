@@ -8,7 +8,7 @@ namespace Waterpulse.EditorTools
 {
     // Piezas de interfaz compartidas por los generadores, con el estilo "retransmisión deportiva" de todo el juego:
     // fuente Barlow Condensed (títulos, botones, números) y Barlow (textos), paneles azul marino translúcidos con
-    // esquinas redondeadas, borde fino y franja amarilla arriba, y botones oscuros que se vuelven amarillos (con el texto
+    // esquinas redondeadas, borde fino y franja volt (verde lima) arriba, y botones oscuros que se vuelven volt (con el texto
     // oscuro) al seleccionarlos. Las formas salen de UiSpriteGenerator; sin ellas o sin las fuentes, todo sigue funcionando
     public static class UiFactory
     {
@@ -17,13 +17,17 @@ namespace Waterpulse.EditorTools
 
         // Paleta
         public static readonly Color Navy = new Color(0.04f, 0.08f, 0.16f);
-        public static readonly Color Yellow = new Color(1f, 0.82f, 0.18f);
-        public static readonly Color HomeBlue = new Color(0.12f, 0.38f, 0.95f);   // gorro del local
-        public static readonly Color AwayWhite = new Color(0.95f, 0.96f, 0.98f);  // gorro del visitante
+        public static readonly Color Volt = new Color(0.83f, 1f, 0.25f);          // acento y energía (#D4FF3F)
+        public static readonly Color HomeBlue = new Color(0.12f, 0.38f, 0.95f);   // relleno de los deslizadores
+        public static readonly Color LocalColor = new Color(0.95f, 0.96f, 0.98f); // local en el HUD (#F2F6FA)
+        public static readonly Color RivalColor = new Color(1f, 0.42f, 0.35f);    // visitante en el HUD (#FF6B5A)
         public static readonly Color DarkText = new Color(0.05f, 0.09f, 0.18f);
         public static readonly Color SoftText = new Color(0.78f, 0.84f, 0.92f);
-        public static readonly Color EnergyColor = new Color(1f, 0.8f, 0.15f);
-        public static readonly Color StaminaColor = new Color(0.25f, 0.85f, 1f);
+        public static readonly Color EnergyColor = Volt;
+        public static readonly Color EnergyIdleColor = new Color(0.6f, 0.72f, 0.2f);   // energía sin llegar al coste: volt apagado
+        public static readonly Color EnergyGlowColor = new Color(Volt.r, Volt.g, Volt.b, 0.4f);   // resplandor con la habilidad lista
+        public static readonly Color StaminaLineColor = new Color(1f, 1f, 1f, 0.75f);   // estamina: línea fina blanca
+        public static readonly Color HairlineColor = new Color(1f, 1f, 1f, 0.14f);       // separadores finos
         public static readonly Color PanelColor = new Color(0.02f, 0.05f, 0.1f, 0.82f);   // capa que tapa el partido
         static readonly Color BoxColor = new Color(0.04f, 0.08f, 0.16f, 0.9f);
         static readonly Color BorderColor = new Color(1f, 1f, 1f, 0.14f);
@@ -46,7 +50,7 @@ namespace Waterpulse.EditorTools
         static readonly Vector2 TextOutlineDistance = new Vector2(1.5f, -1.5f);
         static readonly Vector2 ButtonShadow = new Vector2(0f, -4f);
         static readonly Vector2 FieldPadding = new Vector2(20f, 6f);
-        const float AccentHeight = 5f;     // franja amarilla de arriba de los paneles
+        const float AccentHeight = 5f;     // franja volt de arriba de los paneles
         const float AccentInset = 18f;
         const int CaretWidth = 3;
         const float TintFadeDuration = 0.08f;
@@ -88,7 +92,7 @@ namespace Waterpulse.EditorTools
             return text;
         }
 
-        // Botón con el estilo del juego: oscuro con borde fino; seleccionado, amarillo con el texto oscuro.
+        // Botón con el estilo del juego: oscuro con borde fino; seleccionado, volt con el texto oscuro.
         // T permite usar variantes de Button (por ejemplo, PressButton)
         public static T StyledButton<T>(Transform parent, string name, string text, int fontSize, Vector2 anchor, Vector2 position, Vector2 size) where T : Button
         {
@@ -112,7 +116,7 @@ namespace Waterpulse.EditorTools
             return button;
         }
 
-        // Deslizador con el estilo del juego: carril en cápsula, relleno azul y tirador blanco que se vuelve amarillo al seleccionarlo
+        // Deslizador con el estilo del juego: carril en cápsula, relleno azul y tirador blanco que se vuelve volt al seleccionarlo
         public static Slider StyledSlider(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size)
         {
             var go = DefaultControls.CreateSlider(new DefaultControls.Resources { knob = AssetDatabase.GetBuiltinExtraResource<Sprite>(KnobSprite) });
@@ -138,7 +142,7 @@ namespace Waterpulse.EditorTools
             return slider;
         }
 
-        // Botón de una acción que borra algo: rojo en lugar de azul (seleccionado, amarillo como los demás)
+        // Botón de una acción que borra algo: rojo en lugar de azul (seleccionado, volt como los demás)
         public static void MakeDanger(Button button) => button.colors = Tint(Red, RedHighlight, RedPressed);
 
         // Campo de texto con el estilo del juego: fondo azul oscuro (más claro al seleccionarlo), texto blanco y una pista gris.
@@ -199,7 +203,7 @@ namespace Waterpulse.EditorTools
             return image;
         }
 
-        // Panel de retransmisión: azul marino translúcido, esquinas redondeadas, borde fino y (si accent) franja amarilla arriba
+        // Panel de retransmisión: azul marino translúcido, esquinas redondeadas, borde fino y (si accent) franja volt arriba
         public static RectTransform Box(Transform parent, string name, Vector2 anchor, Vector2 size, bool accent = true)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
@@ -210,7 +214,7 @@ namespace Waterpulse.EditorTools
             Rounded(image, BoxColor);
             image.raycastTarget = false;
             Border(rt);
-            if (accent) Accent(rt, Yellow);
+            if (accent) Accent(rt, Volt);
             return rt;
         }
 
@@ -237,6 +241,22 @@ namespace Waterpulse.EditorTools
             Pill(fill, color, size.y);
             fill.rectTransform.anchorMax = new Vector2(1f, 1f);
             return fill.rectTransform;
+        }
+
+        // Resplandor en cápsula detrás de una barra (devuelta por Bar): sobresale "spread" px por cada lado.
+        // Se crea apagado (alfa 0); quien lo usa lo enciende
+        public static Image Glow(RectTransform fill, float spread, Color color)
+        {
+            var track = (RectTransform)fill.parent;
+            var go = new GameObject(track.name + "Glow", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(track.parent, false);
+            go.transform.SetSiblingIndex(track.GetSiblingIndex());   // justo detrás de la barra
+            var rt = go.GetComponent<RectTransform>();
+            Place(rt, track.anchorMin, track.anchoredPosition, track.sizeDelta + Vector2.one * spread * 2f);
+            var image = go.GetComponent<Image>();
+            Pill(image, new Color(color.r, color.g, color.b, 0f), rt.sizeDelta.y);
+            image.raycastTarget = false;
+            return image;
         }
 
         // Icono de UiSpriteGenerator teñido de un color
@@ -300,7 +320,7 @@ namespace Waterpulse.EditorTools
             colors.normalColor = normal;
             colors.highlightedColor = highlighted;
             colors.pressedColor = pressed;
-            colors.selectedColor = Yellow;
+            colors.selectedColor = Volt;
             colors.disabledColor = DisabledTint;
             colors.fadeDuration = TintFadeDuration;
             return colors;

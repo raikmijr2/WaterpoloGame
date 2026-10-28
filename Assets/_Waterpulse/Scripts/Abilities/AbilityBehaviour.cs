@@ -7,7 +7,8 @@ namespace Waterpulse.Abilities
 {
     // Base de las habilidades: al pedirla el jugador (L), comprueba que se puede usar, gasta la energía,
     // la ejecuta, salpica y avisa con AbilityUsed. Sin energía suficiente no se usa y avisa con AbilityNoEnergy
-    // (el HUD y el sonido se lo hacen saber al humano)
+    // (el HUD y el sonido se lo hacen saber al humano). Cada jugador de campo lleva las dos habilidades y las dos escuchan
+    // la misma tecla: sus condiciones (con o sin pelota) no se solapan, así que solo responde una
     [RequireComponent(typeof(PlayerController), typeof(PlayerEnergy))]
     public abstract class AbilityBehaviour : MonoBehaviour
     {
@@ -16,7 +17,8 @@ namespace Waterpulse.Abilities
 
         protected PlayerController Player { get; private set; }
         protected PlayerEnergy Energy { get; private set; }
-        protected AbilityDefinitionSO Definition => Player.Ability;
+        // Definición de esta habilidad en el jugador (PowerShot o Boost)
+        protected abstract AbilityDefinitionSO Definition { get; }
 
         protected virtual void Awake()
         {

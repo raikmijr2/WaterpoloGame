@@ -48,11 +48,21 @@ namespace Waterpulse.EditorTools
         const float PostSize = 0.12f;
         const float NetDepth = 0.8f;
         const float PlayerHeight = 1.2f;
-        // Triángulo rojo que apunta hacia abajo sobre la cabeza del jugador controlado (como en el FIFA)
-        const float MarkerHeight = 1.3f;        // altura de la punta sobre el agua (m)
-        const float MarkerWidth = 0.45f;
-        const float MarkerDepth = 0.4f;         // de la base a la punta (m)
-        const string MarkerMeshPath = RootDir + "/Art/Meshes/ControlTriangle.asset";
+        // Arcos en el agua bajo el jugador controlado, con la punta hacia donde mira (como en el FIFA)
+        const float MarkerHeight = 0.03f;       // justo encima del agua (m)
+        const float MarkerDiameter = 1.7f;      // ancho del sprite de los arcos (m)
+        const int MarkerSortingOrder = 10;      // se dibuja después del agua (los dos son transparentes)
+        // HUD: marcas sobre los jugadores (PlayerMarkersView), en px de referencia (1920×1080)
+        static readonly Vector2 PlateSize = new Vector2(124f, 34f);
+        static readonly Vector2 PlateRoleSize = new Vector2(48f, 34f);
+        static readonly Vector2 PlateBarSize = new Vector2(64f, 6f);
+        const float PlateCostMarkWidth = 2f;
+        const float PlateGlowSpread = 4f;       // lo que sobresale el resplandor de la barra con la habilidad lista
+        const float PanelGlowSpread = 5f;
+        const float BallArrowSize = 30f;
+        const float BracketsSize = 150f;        // lado del cuadrado que forman las cuatro esquinas
+        const float BracketCornerSize = 26f;
+        const float SwitchKeySize = 34f;
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
 
         // Efectos visuales de las habilidades (solo aspecto, no afectan a la jugabilidad)
@@ -126,9 +136,9 @@ namespace Waterpulse.EditorTools
 
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath),
                                          LoadOrCreate<UsersConfigSO>(UsersConfigPath), out var scoring, out var pause);
-            BuildHumanControl(config, ball, mats);
+            BuildHumanControl(config, ball);
             var cam = BuildCamera(config, pool, ball);
-            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, pool, ball);
+            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, ball);
             BuildAudio(SoundGenerator.EnsureAudio(abilities.XutTragol, abilities.TorpedeBlau), AudioScene.Match);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -370,7 +380,7 @@ namespace Waterpulse.EditorTools
                 bool keeper = role == PlayerRole.Goalkeeper;
                 var player = BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
                                          keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
-                if (!keeper) AddAbility(c, player, role, abilities, mats);   // los porteros no tienen habilidad en el prototipo
+                if (!keeper) AddAbility(c, player, abilities, mats);   // los porteros no tienen habilidad en el prototipo
             }
         }
 
@@ -456,30 +466,26 @@ namespace Waterpulse.EditorTools
             SetRef(playerAnimator, "player", controller);
         }
 
-        // Energía y habilidad de un jugador de campo: Atacant → Xut del Tràngol; Organitzador y Defensor → Torpede Blau
-        static void AddAbility(GameConfigSO c, GameObject go, PlayerRole role, AbilitySetup setup, Materials mats)
+        // Estamina, energía y las dos habilidades de un jugador de campo
+        static void AddAbility(GameConfigSO c, GameObject go, AbilitySetup setup, Materials mats)
         {
             var stamina = go.AddComponent<PlayerStamina>();
             SetRef(stamina, "config", c);
             var energy = go.AddComponent<PlayerEnergy>();
             SetRef(energy, "config", setup.Energy);
 
+            // Todos los jugadores de campo tienen las dos habilidades con la tecla L (decidido por el usuario):
+            // con la pelota, el Xut del Tràngol; sin ella, el Torpede Blau
             var splash = AddSplash(go.transform, mats.Splash);
             var controller = go.GetComponent<PlayerController>();
-            if (role == PlayerRole.Attacker)
-            {
-                SetRef(controller, "ability", setup.XutTragol);
-                var xut = go.AddComponent<XutTragolAbility>();
-                SetRef(xut, "splash", splash);
-                SetRef(xut, "ballTrail", setup.BallTrail);
-            }
-            else
-            {
-                SetRef(controller, "ability", setup.TorpedeBlau);
-                var torpede = go.AddComponent<TorpedeBlauAbility>();
-                SetRef(torpede, "splash", splash);
-                SetRef(torpede, "trail", AddTrail(go, mats.Trail, PlayerTrailTime, PlayerTrailWidth, new Color(0.3f, 0.7f, 1f)));
-            }
+            SetRef(controller, "powerShot", setup.XutTragol);
+            SetRef(controller, "boost", setup.TorpedeBlau);
+            var xut = go.AddComponent<XutTragolAbility>();
+            SetRef(xut, "splash", splash);
+            SetRef(xut, "ballTrail", setup.BallTrail);
+            var torpede = go.AddComponent<TorpedeBlauAbility>();
+            SetRef(torpede, "splash", splash);
+            SetRef(torpede, "trail", AddTrail(go, mats.Trail, PlayerTrailTime, PlayerTrailWidth, new Color(0.3f, 0.7f, 1f)));
         }
 
         static MatchFlow BuildMatchSystems(GameConfigSO c, BallController ball, PoolBounds pool, EnergyConfigSO energy,
@@ -511,18 +517,25 @@ namespace Waterpulse.EditorTools
         }
 
         // Control humano estilo FIFA: un único HumanBrain que ControlSwitcher asigna al jugador con la pelota
-        static void BuildHumanControl(GameConfigSO c, BallController ball, Materials mats)
+        static void BuildHumanControl(GameConfigSO c, BallController ball)
         {
             var go = new GameObject("HumanControl");
             var human = go.AddComponent<HumanBrain>();
             SetRef(human, "config", c);
             var switcher = go.AddComponent<ControlSwitcher>();
-            var marker = new GameObject("ControlMarker", typeof(MeshFilter), typeof(MeshRenderer));
+            // Raíz que sigue al jugador y gira con él; el sprite, tumbado sobre el agua con la punta hacia delante
+            var marker = new GameObject("ControlMarker");
             marker.transform.position = new Vector3(0f, MarkerHeight, 0f);
-            marker.GetComponent<MeshFilter>().sharedMesh = MarkerMesh();
-            var markerRenderer = marker.GetComponent<MeshRenderer>();
-            markerRenderer.sharedMaterial = mats.Marker;
-            markerRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            var arcs = new GameObject("Arcs", typeof(SpriteRenderer));
+            arcs.transform.SetParent(marker.transform, false);
+            arcs.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var arcsRenderer = arcs.GetComponent<SpriteRenderer>();
+            arcsRenderer.sprite = UiSpriteGenerator.Load(UiSpriteGenerator.ControlArcs);
+            arcsRenderer.color = LocalColor;
+            arcsRenderer.sortingOrder = MarkerSortingOrder;
+            arcsRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            if (arcsRenderer.sprite != null)
+                arcs.transform.localScale = Vector3.one * (MarkerDiameter / arcsRenderer.sprite.bounds.size.x);
             SetRef(switcher, "config", c);
             SetRef(switcher, "human", human);
             SetRef(switcher, "ball", ball);
@@ -530,39 +543,9 @@ namespace Waterpulse.EditorTools
             SetEnum(switcher, "humanTeam", (int)TeamSide.Home);
         }
 
-        // Pirámide de base triangular con la punta hacia abajo: desde la cámara inclinada se ve como un triángulo.
-        // Caras con vértices propios para que se vean planas
-        static Mesh MarkerMesh()
-        {
-            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MarkerMeshPath);
-            if (mesh == null)
-            {
-                EnsureFolder(RootDir + "/Art/Meshes");
-                mesh = new Mesh { name = "ControlTriangle" };
-                AssetDatabase.CreateAsset(mesh, MarkerMeshPath);
-            }
-
-            float half = MarkerWidth * 0.5f;
-            var front = new Vector3(0f, MarkerDepth, half);
-            var right = new Vector3(half, MarkerDepth, -half * 0.6f);
-            var left = new Vector3(-half, MarkerDepth, -half * 0.6f);
-            var tip = Vector3.zero;
-            var corners = new[] { front, right, left, tip, right, front, tip, left, right, tip, front, left };
-            var triangles = new int[corners.Length];
-            for (int i = 0; i < triangles.Length; i++) triangles[i] = i;
-
-            mesh.Clear();
-            mesh.vertices = corners;
-            mesh.triangles = triangles;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            EditorUtility.SetDirty(mesh);
-            return mesh;
-        }
-
-        // HUD de retransmisión: marcador, bàners de avisos y de habilidad, panel del jugador, flecha a la portería,
+        // HUD de retransmisión: marcas sobre los jugadores, marcador, bàners de avisos y de habilidad, panel del jugador,
         // barra de tiro, botón de pausa, resumen final y menú de pausa
-        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, PoolBounds pool, BallController ball)
+        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, BallController ball)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -572,16 +555,16 @@ namespace Waterpulse.EditorTools
             scaler.matchWidthOrHeight = 0.5f;
             var root = canvasGo.transform;
 
+            BuildPlayerMarkers(canvasGo, cam, ball);   // el primero: queda debajo de los paneles
             BuildScoreboard(canvasGo, c, flow);
             BuildAbilityBanner(canvasGo, c);
             BuildPlayerPanel(canvasGo);
-            BuildGoalIndicator(canvasGo, c, cam, pool);
 
             // Barra de tiro al lado del jugador del humano mientras carga: relleno blanco y zona verde encima
             var meterBar = Box(root, "ShotMeter", Vector2.zero, new Vector2(30f, 190f), false);
             var meterFill = StretchedImage(meterBar, "Fill", new Color(1f, 1f, 1f, 0.9f));
             meterFill.rectTransform.anchorMax = new Vector2(1f, 0f);
-            var meterGreen = StretchedImage(meterBar, "Green", new Color(0.2f, 0.9f, 0.3f, 0.75f));
+            var meterGreen = StretchedImage(meterBar, "Green", new Color(Volt.r, Volt.g, Volt.b, 0.85f));
             meterBar.gameObject.SetActive(false);
             var meterView = canvasGo.AddComponent<ShotMeterView>();
             SetRef(meterView, "ball", ball);
@@ -602,25 +585,82 @@ namespace Waterpulse.EditorTools
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
 
+        // Marcas sobre los jugadores (PlayerMarkersView): plantilla de la mini placa (rol y energía con la marca del coste de
+        // la habilidad, que se resalta un poco cuando está lista), flecha sobre quien lleva la pelota y cuatro esquinas
+        // alrededor del destino del pase o del siguiente jugador para Q, con la tecla al lado
+        static void BuildPlayerMarkers(GameObject canvasGo, Camera cam, BallController ball)
+        {
+            var layer = StretchedGroup(canvasGo.transform, "PlayerMarkers").transform;
+            var left = new Vector2(0f, 0.5f);
+
+            var plate = Box(layer, "PlateTemplate", Vector2.zero, PlateSize, false);
+            var role = Label(plate, "Role", 22, left, new Vector2(PlateRoleSize.x * 0.5f, 0f), PlateRoleSize);
+            float barX = PlateRoleSize.x + PlateBarSize.x * 0.5f;
+            var energyFill = Bar(plate, "EnergyBar", left, new Vector2(barX, 0f), PlateBarSize, EnergyIdleColor);
+            var costMark = CostMark(energyFill, PlateCostMarkWidth, PlateBarSize.y * 0.5f);
+
+            var plateView = plate.gameObject.AddComponent<PlayerPlate>();
+            SetRef(plateView, "roleLabel", role);
+            SetRef(plateView, "energyFill", energyFill);
+            SetRef(plateView, "costMark", costMark);
+            SetRef(plateView, "highlight", Highlight(energyFill, PlateGlowSpread));
+            plate.gameObject.SetActive(false);
+
+            var arrow = Icon(layer, "BallArrow", UiSpriteGenerator.Chevron, Vector2.zero, Vector2.zero, BallArrowSize, LocalColor);
+
+            var brackets = new GameObject("TargetBrackets", typeof(RectTransform)).GetComponent<RectTransform>();
+            brackets.SetParent(layer, false);
+            brackets.anchorMin = brackets.anchorMax = Vector2.zero;
+            brackets.sizeDelta = Vector2.one * BracketsSize;
+            float half = BracketCornerSize * 0.5f;
+            // El sprite es la esquina de arriba a la izquierda; las otras tres son la misma girada
+            (string name, Vector2 anchor, float angle)[] corners =
+            {
+                ("TopLeft", new Vector2(0f, 1f), 0f), ("TopRight", Vector2.one, -90f),
+                ("BottomRight", new Vector2(1f, 0f), 180f), ("BottomLeft", Vector2.zero, 90f),
+            };
+            foreach (var (name, anchor, angle) in corners)
+            {
+                var offset = new Vector2(anchor.x > 0f ? -half : half, anchor.y > 0f ? -half : half);
+                var corner = Icon(brackets, "Corner" + name, UiSpriteGenerator.Corner, anchor, offset, BracketCornerSize, LocalColor);
+                corner.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
+            }
+            var key = Panel(brackets, "SwitchKey", Vector2.one, new Vector2(SwitchKeySize * 0.5f + 6f, -SwitchKeySize * 0.5f), Vector2.one * SwitchKeySize, LocalColor);
+            var keyLabel = Label(key.transform, "Label", 24, Middle, Vector2.zero, Vector2.one * SwitchKeySize);
+            keyLabel.text = "Q";   // la tecla del cambio de jugador (ControlSwitcher)
+            keyLabel.color = DarkText;
+            keyLabel.GetComponent<Outline>().enabled = false;
+
+            var view = canvasGo.AddComponent<PlayerMarkersView>();
+            SetRef(view, "ball", ball);
+            SetRef(view, "viewCamera", cam);
+            SetEnum(view, "humanTeam", (int)TeamSide.Home);
+            SetRef(view, "plateTemplate", plateView);
+            SetRef(view, "ballArrow", arrow.rectTransform);
+            SetRef(view, "ballArrowImage", arrow);
+            SetRef(view, "targetBrackets", brackets);
+            SetRef(view, "switchKey", key.gameObject);
+        }
+
         // Marcador de retransmisión arriba en el centro: bloque de color de cada equipo con su nombre, goles a los lados del
-        // tiempo y un punto amarillo bajo el equipo con la posesión. Debajo, el bàner de los avisos ("Preparats…", "GOL!"…)
+        // tiempo y un punto volt bajo el equipo con la posesión. Debajo, el bàner de los avisos ("Preparats…", "GOL!"…)
         static void BuildScoreboard(GameObject canvasGo, GameConfigSO c, MatchFlow flow)
         {
             var root = canvasGo.transform;
             var board = Box(root, "Scoreboard", Top, new Vector2(860f, 84f), false);
             board.anchoredPosition = new Vector2(0f, -66f);
-            var homeBlock = Panel(board, "HomeBlock", new Vector2(0f, 0.5f), new Vector2(120f, 0f), new Vector2(224f, 70f), HomeBlue);
+            var homeBlock = Panel(board, "HomeBlock", new Vector2(0f, 0.5f), new Vector2(120f, 0f), new Vector2(224f, 70f), LocalColor);
             var homeName = Label(homeBlock.transform, "HomeName", 40, Middle, Vector2.zero, new Vector2(210f, 60f));
+            homeName.color = DarkText;
+            homeName.GetComponent<Outline>().enabled = false;   // texto oscuro sobre blanco: sin contorno
             var homeScore = Label(board, "HomeScore", 64, Middle, new Vector2(-148f, 0f), new Vector2(100f, 80f));
             var clock = Label(board, "Clock", 52, Middle, Vector2.zero, new Vector2(196f, 70f));
-            clock.color = Yellow;
+            clock.color = Volt;
             var awayScore = Label(board, "AwayScore", 64, Middle, new Vector2(148f, 0f), new Vector2(100f, 80f));
-            var awayBlock = Panel(board, "AwayBlock", new Vector2(1f, 0.5f), new Vector2(-120f, 0f), new Vector2(224f, 70f), AwayWhite);
+            var awayBlock = Panel(board, "AwayBlock", new Vector2(1f, 0.5f), new Vector2(-120f, 0f), new Vector2(224f, 70f), RivalColor);
             var awayName = Label(awayBlock.transform, "AwayName", 40, Middle, Vector2.zero, new Vector2(210f, 60f));
-            awayName.color = DarkText;
-            awayName.GetComponent<Outline>().enabled = false;   // texto oscuro sobre blanco: sin contorno
-            var homeDot = Panel(board, "HomePossession", Vector2.zero, new Vector2(120f, -14f), new Vector2(18f, 18f), Yellow);
-            var awayDot = Panel(board, "AwayPossession", Vector2.right, new Vector2(-120f, -14f), new Vector2(18f, 18f), Yellow);
+            var homeDot = Panel(board, "HomePossession", Vector2.zero, new Vector2(120f, -14f), new Vector2(18f, 18f), Volt);
+            var awayDot = Panel(board, "AwayPossession", Vector2.right, new Vector2(-120f, -14f), new Vector2(18f, 18f), Volt);
 
             var banner = Box(root, "MessageBanner", new Vector2(0.5f, 0.62f), new Vector2(900f, 130f));
             var message = Label(banner, "Message", 84, Middle, Vector2.zero, new Vector2(880f, 120f));
@@ -644,71 +684,83 @@ namespace Waterpulse.EditorTools
         {
             var banner = Box(canvasGo.transform, "AbilityBanner", new Vector2(0.5f, 0.78f), new Vector2(1000f, 110f));
             var label = Label(banner, "AbilityName", 68, Middle, Vector2.zero, new Vector2(980f, 100f));
-            label.color = Yellow;
+            label.color = Volt;
             var announcer = canvasGo.AddComponent<AbilityAnnouncer>();
             SetRef(announcer, "config", c);
             SetRef(announcer, "panel", banner.gameObject);
             SetRef(announcer, "label", label);
         }
 
-        // Panel del jugador controlado, abajo a la izquierda: franja del color del equipo, rol, energía (con la marca del
-        // coste de la habilidad y la tecla L) y estamina
+        // Panel del jugador controlado, abajo a la izquierda, como la ficha de la maqueta: franja del equipo, rol abreviado en
+        // grande, nombre del rol, energía (cifra y barra con la marca del coste de la habilidad, que se resalta un poco
+        // cuando está lista) y estamina en una línea fina
         static void BuildPlayerPanel(GameObject canvasGo)
         {
-            var panel = Box(canvasGo.transform, "PlayerPanel", Vector2.zero, new Vector2(470f, 150f), false);
-            panel.anchoredPosition = new Vector2(40f + 235f, 40f + 75f);   // 40 de margen con las esquinas de la pantalla
-            Panel(panel, "TeamStripe", new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(8f, 126f), HomeBlue);
-            var role = Label(panel, "Role", 36, new Vector2(0f, 1f), new Vector2(178f, -12f), new Vector2(300f, 44f));
-            role.alignment = TextAnchor.MiddleLeft;
-
+            var size = new Vector2(520f, 112f);
+            var panel = Box(canvasGo.transform, "PlayerPanel", Vector2.zero, size, false);
+            panel.anchoredPosition = new Vector2(40f, 40f) + size * 0.5f;   // 40 de margen con las esquinas de la pantalla
             var left = new Vector2(0f, 0.5f);
-            Icon(panel, "EnergyIcon", UiSpriteGenerator.Bolt, left, new Vector2(48f, -8f), 34f, EnergyColor);
-            var energyFill = Bar(panel, "EnergyBar", left, new Vector2(227f, -8f), new Vector2(300f, 18f), EnergyColor);
-            var costMark = StretchedImage(energyFill.parent, "AbilityCost", Color.white).rectTransform;
-            costMark.offsetMin = new Vector2(-2f, -5f);   // raya de 4 px que sobresale un poco del carril
-            costMark.offsetMax = new Vector2(2f, 5f);
-            costMark.anchorMin = new Vector2(0.5f, 0f);   // provisional: PlayerHudView la pone en el coste de la habilidad
-            costMark.anchorMax = new Vector2(0.5f, 1f);
-            var key = Panel(panel, "AbilityKey", left, new Vector2(420f, -8f), new Vector2(44f, 36f), Yellow);
-            var keyLabel = Label(key.transform, "Label", 26, Middle, Vector2.zero, new Vector2(44f, 36f));
-            keyLabel.text = "L";
-            keyLabel.color = DarkText;
-            keyLabel.GetComponent<Outline>().enabled = false;
-            var keyGroup = key.gameObject.AddComponent<CanvasGroup>();
+            Panel(panel, "TeamStripe", left, new Vector2(10f, 0f), new Vector2(6f, size.y - 24f), LocalColor);
+            var roleShort = Label(panel, "RoleShort", 64, left, new Vector2(84f, 0f), new Vector2(120f, 90f));
+            var divider = StretchedImage(panel, "Divider", HairlineColor).rectTransform;
+            divider.anchorMin = divider.anchorMax = left;
+            divider.sizeDelta = new Vector2(1f, size.y - 36f);
+            divider.anchoredPosition = new Vector2(150f, 0f);
 
-            Icon(panel, "StaminaIcon", UiSpriteGenerator.Wave, left, new Vector2(48f, -52f), 34f, StaminaColor);
-            var staminaFill = Bar(panel, "StaminaBar", left, new Vector2(227f, -52f), new Vector2(300f, 18f), StaminaColor);
+            // Columna de la derecha: de x = 170 a x = 500
+            const float x0 = 170f, width = 330f;
+            var role = Label(panel, "Role", 20, left, new Vector2(x0 + width * 0.5f, 32f), new Vector2(width, 26f));
+            role.alignment = TextAnchor.MiddleLeft;
+            role.color = SoftText;
+            var energyTitle = Label(panel, "EnergyTitle", 15, left, new Vector2(x0 + width * 0.5f, 6f), new Vector2(width, 22f));
+            energyTitle.alignment = TextAnchor.MiddleLeft;
+            energyTitle.color = SoftText;
+            energyTitle.text = "ENERGIA";
+            var energyValue = Label(panel, "EnergyValue", 26, left, new Vector2(x0 + width * 0.5f, 6f), new Vector2(width, 30f));
+            energyValue.alignment = TextAnchor.MiddleRight;
+            var energyFill = Bar(panel, "EnergyBar", left, new Vector2(x0 + width * 0.5f, -16f), new Vector2(width, 8f), EnergyIdleColor);
+            var costMark = CostMark(energyFill, 3f, 4f);
+            var highlight = Highlight(energyFill, PanelGlowSpread);
+
+            var staminaTitle = Label(panel, "StaminaTitle", 13, left, new Vector2(x0 + 40f, -38f), new Vector2(80f, 20f));
+            staminaTitle.alignment = TextAnchor.MiddleLeft;
+            staminaTitle.color = SoftText;
+            staminaTitle.text = "ESTAMINA";
+            const float staminaX = x0 + 90f, staminaWidth = width - 90f;
+            var staminaFill = Bar(panel, "StaminaBar", left, new Vector2(staminaX + staminaWidth * 0.5f, -38f), new Vector2(staminaWidth, 3f), StaminaLineColor);
 
             var view = canvasGo.AddComponent<PlayerHudView>();
             SetRef(view, "panel", panel.gameObject);
+            SetRef(view, "roleShortLabel", roleShort);
             SetRef(view, "roleLabel", role);
             SetRef(view, "energyFill", energyFill);
+            SetRef(view, "energyTrack", energyFill.parent.GetComponent<Image>());
+            SetRef(view, "energyValueLabel", energyValue);
             SetRef(view, "abilityCostMark", costMark);
-            SetRef(view, "abilityKey", keyGroup);
-            SetRef(view, "abilityKeyBackground", key);
+            SetRef(view, "energyHighlight", highlight);
             SetRef(view, "staminaFill", staminaFill);
         }
 
-        // Flecha hacia la portería rival cuando la cámara no la enseña: cápsula oscura con el texto y la flecha del lado bueno
-        static void BuildGoalIndicator(GameObject canvasGo, GameConfigSO c, Camera cam, PoolBounds pool)
+        // Raya blanca en el coste de la habilidad, sobre una barra de energía (devuelta por Bar); sobresale "overhang" px
+        // por arriba y por abajo. La pone en su sitio quien la usa (PlayerHudView o PlayerPlate)
+        static RectTransform CostMark(RectTransform fill, float width, float overhang)
         {
-            var indicator = Panel(canvasGo.transform, "GoalIndicator", Vector2.zero, Vector2.zero, new Vector2(270f, 64f), new Color(Navy.r, Navy.g, Navy.b, 0.9f));
-            var label = Label(indicator.transform, "Label", 34, Middle, Vector2.zero, new Vector2(170f, 56f));
-            label.color = Yellow;
-            var right = Icon(indicator.transform, "ArrowRight", UiSpriteGenerator.Arrow, new Vector2(1f, 0.5f), new Vector2(-30f, 0f), 34f, Yellow);
-            var left = Icon(indicator.transform, "ArrowLeft", UiSpriteGenerator.Arrow, new Vector2(0f, 0.5f), new Vector2(30f, 0f), 34f, Yellow);
-            left.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 180f);
-            indicator.gameObject.SetActive(false);
+            var mark = StretchedImage(fill.parent, "AbilityCost", Color.white).rectTransform;
+            mark.anchorMin = new Vector2(0.5f, 0f);   // provisional
+            mark.anchorMax = new Vector2(0.5f, 1f);
+            mark.offsetMin = new Vector2(-width * 0.5f, -overhang);
+            mark.offsetMax = new Vector2(width * 0.5f, overhang);
+            return mark;
+        }
 
-            var goalIndicator = canvasGo.AddComponent<GoalIndicator>();
-            SetRef(goalIndicator, "config", c);
-            SetRef(goalIndicator, "pool", pool);
-            SetRef(goalIndicator, "viewCamera", cam);
-            SetRef(goalIndicator, "indicator", indicator.rectTransform);
-            SetRef(goalIndicator, "label", label);
-            SetRef(goalIndicator, "arrowRight", right.gameObject);
-            SetRef(goalIndicator, "arrowLeft", left.gameObject);
-            SetEnum(goalIndicator, "humanTeam", (int)TeamSide.Home);
+        // Resalte de una barra de energía con la habilidad lista: el relleno pasa a volt y se enciende un resplandor detrás
+        static EnergyHighlight Highlight(RectTransform fill, float spread)
+        {
+            var glow = Glow(fill, spread, EnergyGlowColor);
+            var highlight = fill.parent.gameObject.AddComponent<EnergyHighlight>();
+            SetRef(highlight, "fill", fill.GetComponent<Image>());
+            SetRef(highlight, "glow", glow);
+            return highlight;
         }
 
         // Resumen del partido (se activa en Results): marcador, ganador, una tabla por equipo, récord del usuario y botones
@@ -719,7 +771,7 @@ namespace Waterpulse.EditorTools
             var t = panel.transform;
             var score = Label(t, "Score", 84, new Vector2(0.5f, 0.9f), Vector2.zero, new Vector2(1600f, 110f));
             var winner = Label(t, "Winner", 52, new Vector2(0.5f, 0.81f), Vector2.zero, new Vector2(1400f, 80f));
-            winner.color = Yellow;
+            winner.color = Volt;
             var record = Label(t, "Record", 40, new Vector2(0.5f, 0.17f), Vector2.zero, new Vector2(1600f, 60f));
             var restartButton = StyledButton<Button>(t, "RestartButton", "Tornar a jugar", 44, new Vector2(0.5f, 0.08f), new Vector2(-290f, 0f), new Vector2(520f, 110f));
             var menuButton = StyledButton<Button>(t, "MenuButton", "Menú principal", 44, new Vector2(0.5f, 0.08f), new Vector2(290f, 0f), new Vector2(520f, 110f));
@@ -762,7 +814,7 @@ namespace Waterpulse.EditorTools
         {
             var title = Label(box, header + "Header", 28, Top, new Vector2(x, -90f), new Vector2(width, 40f));
             title.text = header;
-            title.color = Yellow;
+            title.color = Volt;
             var column = Label(box, header + "Column", 32, Top, new Vector2(x, -135f), new Vector2(width, 260f));
             column.alignment = TextAnchor.UpperCenter;
             column.lineSpacing = 1.25f;
@@ -916,7 +968,7 @@ namespace Waterpulse.EditorTools
         internal class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
-            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Marker, Trail, Splash;
+            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Trail, Splash;
 
             public Materials()
             {
@@ -935,7 +987,6 @@ namespace Waterpulse.EditorTools
                 AwaySuit = Lit("AwaySuit", new Color(0.85f, 0.85f, 0.85f));
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
-                Marker = Lit("ControlMarker", new Color(0.95f, 0.1f, 0.1f));
                 Trail = Unlit("Trail", "Sprites/Default");
                 Splash = Unlit("Splash", "Universal Render Pipeline/Particles/Unlit");
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
