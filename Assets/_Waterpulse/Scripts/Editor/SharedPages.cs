@@ -109,9 +109,9 @@ namespace Waterpulse.EditorTools
         {
             var box = Box(page, "Box", anchor, new Vector2(1200f, 700f));
             Heading(box, "Controls");
-            ControlsColumn(box, "Actions", -360f, "Acció", "Nedar", "Passar / recuperar", "Xutar", "Habilitat", "Esprint", "Nedar lent (mantenir)", "Canviar de jugador", "Pausa");
-            ControlsColumn(box, "Keyboard", 60f, "Teclat", "W A S D", "J", "K", "L", "Shift", "Espai", "Q", "Esc / P");
-            ControlsColumn(box, "Gamepad", 400f, "Comandament", "Joystick esquerre", "A", "B", "Y", "RB", "LB", "LT", "Start");
+            ControlsColumn(box, "Actions", -360f, "Acció", "Nedar", "Passar / recuperar", "Xutar (2 cops, al verd)", "Habilitat", "Esprint", "Nedar lent (mantenir)", "Canviar de jugador", "Pausa");
+            ControlsColumn(box, "Keyboard", 60f, "Teclat", "W A S D", "J", "K + K", "L", "Shift", "Espai", "Q", "Esc / P");
+            ControlsColumn(box, "Gamepad", 400f, "Comandament", "Joystick esquerre", "A", "B + B", "Y", "RB", "LB", "LT", "Start");
             return MenuButton<Button>(box, "BackButton", "Tornar", BoxButtonFont, Top, new Vector2(0f, -625f), BoxButtonSize);
         }
 

@@ -28,6 +28,20 @@ namespace Waterpulse.Gameplay
         Vector3 boostDirection;
         float boostMultiplier;
         PlayerStamina stamina;
+        ShotMeter shotMeter;
+        Transform visual;           // hijo "Visual": el saltito y la subida del tiro solo se ven, no mueven el cuerpo
+        float visualBaseY;
+        float freezeTimer;          // quieto tras pasar
+        float hopTimer;             // saltito del pase
+        // Lanzamiento pendiente (pase o tiro): la pelota sale con el evento ReleaseBall de la animación
+        // o, si no hay animación o no llega, al acabar throwTimer
+        enum PendingThrow { None, Pass, Shot }
+        PendingThrow pendingThrow;
+        float throwTimer;
+        Vector3 passAim;
+        Vector2 shotStick;
+        float shotQuality;
+        float shotRise;             // altura a la que se quedó al soltar la barra
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
@@ -38,6 +52,25 @@ namespace Waterpulse.Gameplay
         public PlayerStamina Stamina => stamina;
         public bool CanTryRecover => recoverCooldownTimer <= 0f;
         public bool HasBall => ball != null && ball.Holder == this;
+        // Barra de tiro: K empieza a cargar y K otra vez suelta el tiro
+        public bool IsChargingShot => shotMeter != null && shotMeter.IsCharging;
+        public float ShotFill => shotMeter != null ? shotMeter.Fill : 0f;
+        public ShotMeter ShotMeter => shotMeter;
+        public float ShotGreenStart => shotMeter != null ? shotMeter.GreenStart : 0f;
+        public float ShotGreenEnd => shotMeter != null ? shotMeter.GreenEnd : 0f;
+        // Quieto mientras pasa (saltito) o carga el tiro
+        public bool IsBusy => IsChargingShot || pendingThrow != PendingThrow.None || freezeTimer > 0f;
+        // Velocidad respecto a la máxima (0 = quieto, 1 = máxima; más durante un acelerón)
+        public float SpeedRatio => config.maxSpeed > 0f ? FlatSpeed() / config.maxSpeed : 0f;
+        // Hay un modelo animado que avisará con ReleaseBall (lo registra PlayerAnimator)
+        public bool HasThrowAnimation { get; set; }
+        // Mano del modelo en la que se ve la pelota (null = sin modelo: la pelota se ve donde está). La pone PlayerAnimator
+        public Transform BallHand { get; set; }
+        public GameConfigSO Config => config;
+
+        // Empieza un lanzamiento (pase o tiro) y un intento de robo al alcance: los usa la animación
+        public event System.Action ThrowStarted;
+        public event System.Action StealAttempted;
 
         // El jugador ha pulsado la habilidad (L). Lo ejecuta el componente de habilidad que tenga
         public event System.Action AbilityRequested;
@@ -55,6 +88,9 @@ namespace Waterpulse.Gameplay
             body.useGravity = false;
             body.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             body.interpolation = RigidbodyInterpolation.Interpolate;
+            shotMeter = new ShotMeter(config.shotMeterDuration, config.shotGreenStart, config.shotGreenWidth, config.shotOffGreenMaxQuality);
+            visual = transform.Find("Visual");
+            if (visual != null) visualBaseY = visual.localPosition.y;
         }
 
         void OnEnable()
@@ -74,7 +110,20 @@ namespace Waterpulse.Gameplay
         void OnMatchStateChanged(MatchState state)
         {
             canAct = state == MatchState.Playing;
-            if (!canAct) boostTimer = 0f;
+            if (!canAct)
+            {
+                boostTimer = 0f;
+                CancelActions();
+            }
+        }
+
+        // Corta el pase pendiente, la carga del tiro y la pausa de después del pase
+        void CancelActions()
+        {
+            shotMeter.Cancel();
+            pendingThrow = PendingThrow.None;
+            freezeTimer = 0f;
+            hopTimer = 0f;
         }
 
         // Asigna un cerebro externo (p. ej. el del humano). ResetBrain vuelve al propio del jugador
@@ -84,7 +133,41 @@ namespace Waterpulse.Gameplay
         void Update()
         {
             intent = canAct && !paused && brain != null ? brain.GetIntent() : PlayerIntent.None;
-            if (recoverCooldownTimer > 0f) recoverCooldownTimer -= Time.deltaTime;
+            float dt = Time.deltaTime;
+            if (recoverCooldownTimer > 0f) recoverCooldownTimer -= dt;
+            if (freezeTimer > 0f) freezeTimer -= dt;
+            if (hopTimer > 0f) hopTimer -= dt;
+
+            // Si le roban la pelota (o la suelta) mientras pasa o carga, se corta la acción
+            if (!HasBall && (pendingThrow != PendingThrow.None || shotMeter.IsCharging))
+            {
+                pendingThrow = PendingThrow.None;
+                shotMeter.Cancel();
+            }
+
+            if (pendingThrow != PendingThrow.None)
+            {
+                // Esperando a que la mano suelte la pelota (evento de la animación) o a que se acabe el tiempo
+                throwTimer -= dt;
+                if (throwTimer <= 0f) ReleaseBall();
+                return;
+            }
+
+            if (shotMeter.IsCharging)
+            {
+                // Segunda K: la calidad es la de donde está la barra. Si se llena, tira solo (con la peor).
+                // Apunta con el stick del momento de soltar
+                bool full = shotMeter.Tick(dt);
+                if (intent.Shoot || full)
+                {
+                    shotRise = shotMeter.Fill * config.shotRiseHeight;
+                    shotStick = intent.Move;
+                    shotQuality = shotMeter.Release();
+                    // Sin animación sale al momento, como antes
+                    BeginThrow(PendingThrow.Shot, HasThrowAnimation ? config.throwReleaseTimeout : 0f);
+                }
+                return;
+            }
 
             // Las pulsaciones duran un frame: se ejecutan aquí y no en FixedUpdate
             if (intent.Ability) AbilityRequested?.Invoke();
@@ -93,13 +176,20 @@ namespace Waterpulse.Gameplay
 
             if (HasBall)
             {
-                if (intent.Pass) ball.Pass(this, AimDirection());
-                else if (intent.Shoot) ball.Shoot(this, intent.Move);
+                if (intent.Pass) StartPass();
+                else if (intent.Shoot)
+                {
+                    // Primera K: empieza a cargar; se queda quieto y va subiendo
+                    boostTimer = 0f;
+                    shotMeter.Begin();
+                }
             }
             else if (intent.Pass && !IsGoalkeeper && CanTryRecover)
             {
                 // J sin pelota: intentar recuperarla. Si falla, espera antes de poder repetir
-                if (ball.TryRecover(this) == RecoverResult.Failed)
+                var result = ball.TryRecover(this);
+                if (result != RecoverResult.OutOfRange) StealAttempted?.Invoke();
+                if (result == RecoverResult.Failed)
                 {
                     recoverCooldownTimer = config.recoverCooldown;
                     GameEvents.RaiseRecoverFailed(gameObject);
@@ -116,6 +206,15 @@ namespace Waterpulse.Gameplay
                 body.linearDamping = 0f;
                 body.linearVelocity = boostDirection * (config.maxSpeed * boostMultiplier);
                 body.MoveRotation(Quaternion.LookRotation(boostDirection));
+                body.angularVelocity = Vector3.zero;
+                return;
+            }
+
+            if (IsBusy)
+            {
+                // Pasando o cargando el tiro: completamente quieto
+                body.linearDamping = 0f;
+                body.linearVelocity = Vector3.zero;
                 body.angularVelocity = Vector3.zero;
                 return;
             }
@@ -143,6 +242,51 @@ namespace Waterpulse.Gameplay
 
             // Los choques no deben hacer girar al jugador
             body.angularVelocity = Vector3.zero;
+        }
+
+        // Pase: se para en seco y da un saltito. Con animación, la pelota sale con su evento ReleaseBall
+        // (como mucho a los throwReleaseTimeout); sin animación, al momento
+        void StartPass()
+        {
+            freezeTimer = config.passFreezeDuration;
+            hopTimer = config.passFreezeDuration;
+            passAim = AimDirection();
+            BeginThrow(PendingThrow.Pass, HasThrowAnimation ? config.throwReleaseTimeout : 0f);
+        }
+
+        void BeginThrow(PendingThrow kind, float maxWait)
+        {
+            boostTimer = 0f;
+            pendingThrow = kind;
+            throwTimer = maxWait;
+            ThrowStarted?.Invoke();
+            if (maxWait <= 0f) ReleaseBall();
+        }
+
+        // La pelota sale de la mano. Lo llama el evento de la animación (a través de PlayerAnimator)
+        // o el propio jugador si el evento no llega a tiempo
+        public void ReleaseBall()
+        {
+            var kind = pendingThrow;
+            pendingThrow = PendingThrow.None;
+            if (kind == PendingThrow.Pass) ball.Pass(this, passAim);
+            else if (kind == PendingThrow.Shot) ball.Shoot(this, shotStick, shotQuality);
+        }
+
+        // Saltito del pase y subida mientras carga el tiro: solo se mueve el hijo "Visual"
+        void LateUpdate()
+        {
+            if (visual == null) return;
+            float height = 0f;
+            if (hopTimer > 0f && config.passFreezeDuration > 0f)
+                height = Mathf.Sin(Mathf.PI * (1f - hopTimer / config.passFreezeDuration)) * config.passHopHeight;
+            else if (shotMeter.IsCharging)
+                height = shotMeter.Fill * config.shotRiseHeight;
+            else if (pendingThrow == PendingThrow.Shot)
+                height = shotRise;   // arriba hasta que suelta la pelota
+            Vector3 local = visual.localPosition;
+            local.y = visualBaseY + height;
+            visual.localPosition = local;
         }
 
         // Dash: sirve para recuperar velocidad. Cuanto más lento vas, más fuerte; a velocidad máxima no se nota,
@@ -188,6 +332,7 @@ namespace Waterpulse.Gameplay
             facing.y = 0f;
             Quaternion rotation = facing.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(facing) : transform.rotation;
             boostTimer = 0f;
+            CancelActions();
             body.linearVelocity = Vector3.zero;
             body.position = position;
             body.rotation = rotation;

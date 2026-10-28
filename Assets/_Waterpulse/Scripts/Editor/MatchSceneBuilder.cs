@@ -34,6 +34,7 @@ namespace Waterpulse.EditorTools
         public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
         public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
         public const string UsersConfigPath = RootDir + "/Config/UsersConfig.asset";
+        public const string DefaultPlayerModelPath = RootDir + "/Prefabs/Waterpolo_TreadingWater.prefab";
         internal const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -49,7 +50,11 @@ namespace Waterpulse.EditorTools
         const float PostSize = 0.12f;
         const float NetDepth = 0.8f;
         const float PlayerHeight = 1.2f;
-        const float MarkerHeight = 0.02f;
+        // Triángulo rojo que apunta hacia abajo sobre la cabeza del jugador controlado (como en el FIFA)
+        const float MarkerHeight = 1.3f;        // altura de la punta sobre el agua (m)
+        const float MarkerWidth = 0.45f;
+        const float MarkerDepth = 0.4f;         // de la base a la punta (m)
+        const string MarkerMeshPath = RootDir + "/Art/Meshes/ControlTriangle.asset";
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
 
         // Efectos visuales de las habilidades (solo aspecto, no afectan a la jugabilidad)
@@ -76,7 +81,19 @@ namespace Waterpulse.EditorTools
             Debug.Log($"[Waterpulse] Escena generada en {ScenePath}. Pulsa Play y muévete con WASD.");
         }
 
-        public static void Build()
+        // Solo para probar: la misma escena sin el equipo visitante (ni jugadores de campo ni portero).
+        // Build Match Scene la vuelve a dejar normal
+        [MenuItem("Waterpulse/Build Match Scene (sin rivales)", priority = 1)]
+        static void BuildWithoutRivalsFromMenu()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            Build(false);
+            Debug.Log($"[Waterpulse] Escena SIN RIVALES generada en {ScenePath}. Para el partido normal, Build Match Scene.");
+        }
+
+        public static void Build() => Build(true);
+
+        public static void Build(bool withRivals)
         {
             EnsureFolder(RootDir + "/Scenes");
             EnsureFolder(RootDir + "/Config");
@@ -105,13 +122,14 @@ namespace Waterpulse.EditorTools
 
             // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
             BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false), abilities);
-            BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, BuildTeamAI(TeamSide.Away, ball, difficulty, true), abilities);
+            var awayAI = BuildTeamAI(TeamSide.Away, ball, difficulty, true);
+            if (withRivals) BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, awayAI, abilities);
 
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath),
                                          LoadOrCreate<UsersConfigSO>(UsersConfigPath), out var scoring, out var pause);
             BuildHumanControl(config, ball, mats);
             var cam = BuildCamera(config, pool, ball);
-            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, pool);
+            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, pool, ball);
             BuildAudio(SoundGenerator.EnsureAudio(abilities.XutTragol, abilities.TorpedeBlau), AudioScene.Match);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -281,6 +299,14 @@ namespace Waterpulse.EditorTools
             SetRef(ball, "config", c);
             SetRef(ball, "pool", pool);
 
+            // La esfera que se ve es una hija: así puede ir en la mano del modelo sin mover la pelota física
+            Object.DestroyImmediate(go.GetComponent<MeshRenderer>());
+            Object.DestroyImmediate(go.GetComponent<MeshFilter>());
+            var visual = Prim(PrimitiveType.Sphere, "Visual", go.transform, Vector3.zero, Vector3.one, mats.Ball, false);
+            var ballVisual = visual.AddComponent<BallVisual>();
+            SetRef(ballVisual, "config", c);
+            SetRef(ballVisual, "ball", ball);
+
             // Estela del Xut del Tràngol (apagada hasta que se usa la habilidad)
             AddTrail(go, mats.Trail, BallTrailTime, BallTrailWidth, new Color(1f, 0.6f, 0.1f));
             return ball;
@@ -385,15 +411,50 @@ namespace Waterpulse.EditorTools
                 SetRef(brain, "teamAI", teamAI);
             }
 
-            // Visual: cuerpo medio sumergido, bañador del equipo, gorro y "nariz" para ver hacia dónde mira
+            // Visual: los jugadores de campo locales llevan el modelo animado (si existe); el resto, cápsulas
             var visual = new GameObject("Visual").transform;
             visual.SetParent(go.transform, false);
+            var model = team == TeamSide.Home && role != PlayerRole.Goalkeeper ? PlayerModel(c) : null;
+            if (model != null)
+            {
+                AddPlayerModel(c, model, visual, go.GetComponent<PlayerController>());
+                return go;
+            }
+
+            // Cápsula: cuerpo medio sumergido, bañador del equipo, gorro y "nariz" para ver hacia dónde mira
             float d = c.playerRadius * 2f;
             Prim(PrimitiveType.Capsule, "Body", visual, Vector3.zero, new Vector3(d, PlayerHeight * 0.5f, d), mats.Body, false);
             Prim(PrimitiveType.Cylinder, "Suit", visual, Vector3.zero, new Vector3(d * 1.05f, SuitHeight, d * 1.05f), suitMaterial, false);
             Prim(PrimitiveType.Sphere, "Cap", visual, new Vector3(0f, PlayerHeight * 0.5f, 0f), Vector3.one * d * 0.8f, capMaterial, false);
             Prim(PrimitiveType.Cube, "Nose", visual, new Vector3(0f, PlayerHeight * 0.35f, c.playerRadius), Vector3.one * d * 0.3f, mats.Nose, false);
             return go;
+        }
+
+        static GameObject PlayerModel(GameConfigSO c) =>
+            c.homePlayerModel != null ? c.homePlayerModel : AssetDatabase.LoadAssetAtPath<GameObject>(DefaultPlayerModelPath);
+
+        // Modelo animado dentro de "Visual" (así el saltito del pase y la subida del tiro también lo mueven)
+        // y PlayerAnimator junto a su Animator para los parámetros y el evento ReleaseBall
+        static void AddPlayerModel(GameConfigSO c, GameObject prefab, Transform visual, PlayerController controller)
+        {
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab, visual);
+            model.transform.localPosition = c.playerModelOffset;
+            model.transform.localRotation = Quaternion.identity;
+            model.transform.localScale = Vector3.one * c.playerModelScale;
+
+            // El jugador ya tiene su Rigidbody y su collider: los del modelo no deben moverse ni chocar
+            foreach (var body in model.GetComponentsInChildren<Rigidbody>()) body.isKinematic = true;
+            foreach (var collider in model.GetComponentsInChildren<Collider>()) collider.enabled = false;
+
+            var animator = model.GetComponentInChildren<Animator>();
+            if (animator == null)
+            {
+                Debug.LogWarning($"[Waterpulse] El modelo {prefab.name} no tiene Animator: no se animará");
+                return;
+            }
+            animator.applyRootMotion = false;
+            var playerAnimator = animator.gameObject.AddComponent<PlayerAnimator>();
+            SetRef(playerAnimator, "player", controller);
         }
 
         // Energía y habilidad de un jugador de campo: Atacant → Xut del Tràngol; Organitzador y Defensor → Torpede Blau
@@ -457,7 +518,12 @@ namespace Waterpulse.EditorTools
             var human = go.AddComponent<HumanBrain>();
             SetRef(human, "config", c);
             var switcher = go.AddComponent<ControlSwitcher>();
-            var marker = Prim(PrimitiveType.Cylinder, "ControlMarker", null, new Vector3(0f, MarkerHeight, 0f), new Vector3(1.4f, 0.01f, 1.4f), mats.Marker, false, false);
+            var marker = new GameObject("ControlMarker", typeof(MeshFilter), typeof(MeshRenderer));
+            marker.transform.position = new Vector3(0f, MarkerHeight, 0f);
+            marker.GetComponent<MeshFilter>().sharedMesh = MarkerMesh();
+            var markerRenderer = marker.GetComponent<MeshRenderer>();
+            markerRenderer.sharedMaterial = mats.Marker;
+            markerRenderer.shadowCastingMode = ShadowCastingMode.Off;
             SetRef(switcher, "config", c);
             SetRef(switcher, "human", human);
             SetRef(switcher, "ball", ball);
@@ -465,8 +531,38 @@ namespace Waterpulse.EditorTools
             SetEnum(switcher, "humanTeam", (int)TeamSide.Home);
         }
 
+        // Pirámide de base triangular con la punta hacia abajo: desde la cámara inclinada se ve como un triángulo.
+        // Caras con vértices propios para que se vean planas
+        static Mesh MarkerMesh()
+        {
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MarkerMeshPath);
+            if (mesh == null)
+            {
+                EnsureFolder(RootDir + "/Art/Meshes");
+                mesh = new Mesh { name = "ControlTriangle" };
+                AssetDatabase.CreateAsset(mesh, MarkerMeshPath);
+            }
+
+            float half = MarkerWidth * 0.5f;
+            var front = new Vector3(0f, MarkerDepth, half);
+            var right = new Vector3(half, MarkerDepth, -half * 0.6f);
+            var left = new Vector3(-half, MarkerDepth, -half * 0.6f);
+            var tip = Vector3.zero;
+            var corners = new[] { front, right, left, tip, right, front, tip, left, right, tip, front, left };
+            var triangles = new int[corners.Length];
+            for (int i = 0; i < triangles.Length; i++) triangles[i] = i;
+
+            mesh.Clear();
+            mesh.vertices = corners;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            EditorUtility.SetDirty(mesh);
+            return mesh;
+        }
+
         // HUD básico: marcador con tiempo, mensaje central y pantalla final. El HUD completo es de la Fase 8
-        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, PoolBounds pool)
+        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, PoolBounds pool, BallController ball)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -507,6 +603,20 @@ namespace Waterpulse.EditorTools
             SetRef(goalIndicator, "indicator", arrow.rectTransform);
             SetRef(goalIndicator, "label", arrow);
             SetEnum(goalIndicator, "humanTeam", (int)TeamSide.Home);
+
+            // Barra de tiro al lado del jugador del humano mientras carga: relleno blanco y zona verde encima
+            var meterBar = Box(root, "ShotMeter", Vector2.zero, new Vector2(30f, 190f));
+            var meterFill = StretchedImage(meterBar, "Fill", new Color(1f, 1f, 1f, 0.9f));
+            meterFill.rectTransform.anchorMax = new Vector2(1f, 0f);
+            var meterGreen = StretchedImage(meterBar, "Green", new Color(0.2f, 0.9f, 0.3f, 0.75f));
+            meterBar.gameObject.SetActive(false);
+            var meterView = canvasGo.AddComponent<ShotMeterView>();
+            SetRef(meterView, "ball", ball);
+            SetRef(meterView, "viewCamera", cam);
+            SetEnum(meterView, "humanTeam", (int)TeamSide.Home);
+            SetRef(meterView, "bar", meterBar);
+            SetRef(meterView, "greenZone", meterGreen.rectTransform);
+            SetRef(meterView, "fill", meterFill.rectTransform);
 
             // Botón de pausa para ratón y táctil. Sin navegación: si quedara seleccionado, el A del mando (pase) lo pulsaría
             var pauseButton = StyledButton<Button>(root, "PauseButton", "II", 44, Vector2.one, new Vector2(-70f, -60f), new Vector2(90f, 90f));
@@ -744,7 +854,7 @@ namespace Waterpulse.EditorTools
                 AwaySuit = Lit("AwaySuit", new Color(0.85f, 0.85f, 0.85f));
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
-                Marker = Lit("ControlMarker", new Color(0.3f, 1f, 0.4f));
+                Marker = Lit("ControlMarker", new Color(0.95f, 0.1f, 0.1f));
                 Trail = Unlit("Trail", "Sprites/Default");
                 Splash = Unlit("Splash", "Universal Render Pipeline/Particles/Unlit");
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));

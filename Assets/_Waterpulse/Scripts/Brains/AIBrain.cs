@@ -35,6 +35,8 @@ namespace Waterpulse.Brains
         float decisionTimer;
         float holdTimer;      // tiempo que lleva con la pelota
         float attackLaneZ;    // carril (Z) por el que avanza con la pelota
+        float shotReleaseFill; // punto de la barra de tiro en el que soltará el tiro
+        float shotPost;        // palo al que apunta (eje Y del stick)
 
         public State Current { get; private set; }
         public Vector3 Target { get; private set; }
@@ -86,6 +88,10 @@ namespace Waterpulse.Brains
             }
             else holdTimer = 0f;
 
+            // Cargando el tiro: suelta (segunda pulsación) al llegar al punto de la barra elegido
+            if (self.IsChargingShot)
+                return new PlayerIntent { Move = new Vector2(0f, shotPost), Shoot = self.ShotFill >= shotReleaseFill };
+
             if (Aggressive)
             {
                 // Persecución, corte y presión a máxima velocidad: si frenaran al llegar, no alcanzarían a nadie
@@ -136,6 +142,11 @@ namespace Waterpulse.Brains
                     float post = Random.value < 0.5f ? -1f : 1f;
                     // Si iba a tirar y tiene energía, usa el Xut del Tràngol en vez del tiro normal
                     bool power = CanUseAbility(AbilityKind.PowerShot);
+                    if (!power)
+                    {
+                        shotPost = post;
+                        shotReleaseFill = ChooseShotReleaseFill();
+                    }
                     return new PlayerIntent { Move = new Vector2(0f, post), Shoot = !power, Ability = power };
                 }
                 if (choice.Action == AttackAction.Pass)
@@ -149,6 +160,17 @@ namespace Waterpulse.Brains
             Vector3 spot = goal - Vector3.right * (sign * config.aiAdvanceDistance);
             spot.z = attackLaneZ;
             return Go(State.Attack, spot);
+        }
+
+        // Dónde soltará la barra de tiro: en el verde con la probabilidad de la dificultad; si no, antes de llegar
+        float ChooseShotReleaseFill()
+        {
+            float greenStart = self.ShotGreenStart;
+            float greenEnd = self.ShotGreenEnd;
+            var difficulty = teamAI.Difficulty;
+            // Primera mitad del verde: la barra avanza a saltos de un frame y no debe pasarse de la zona
+            if (Random.value < difficulty.shotGreenChance) return Random.Range(greenStart, (greenStart + greenEnd) * 0.5f);
+            return Random.Range(Mathf.Min(difficulty.shotMissMinFill, greenStart), greenStart);
         }
 
         // ---------- Sin pelota ----------

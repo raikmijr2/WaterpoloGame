@@ -10,9 +10,9 @@ namespace Waterpulse.Config
         [Tooltip("Velocidad máxima de nado (m/s)")]
         public float maxSpeed = 4f;
         [Tooltip("Aceleración hacia la velocidad deseada mientras hay input (m/s²)")]
-        public float acceleration = 8f;
+        public float acceleration = 30f;
         [Tooltip("Frenado del Rigidbody al soltar el input. Más bajo = más deriva")]
-        public float linearDamping = 2f;
+        public float linearDamping = 15f;
         [Tooltip("Velocidad de giro del jugador hacia donde nada (grados/s)")]
         public float turnSpeed = 540f;
         [Tooltip("Radio del cuerpo del jugador (m). Requiere regenerar la escena")]
@@ -42,11 +42,33 @@ namespace Waterpulse.Config
         public float passConeAngle = 60f;
         [Tooltip("Distancia que recorre un pase sin receptor antes de quedar libre (m)")]
         public float passNoTargetDistance = 6f;
+        [Tooltip("Tiempo que el pasador se queda quieto al pasar (s); dura también su saltito")]
+        public float passFreezeDuration = 0.3f;
+        [Tooltip("Altura del saltito al pasar (m, solo visual)")]
+        public float passHopHeight = 0.3f;
+        [Tooltip("Con modelo animado la pelota sale con el evento ReleaseBall de la animación; esto es lo máximo que se espera antes de soltarla igualmente (s). Sin modelo sale al momento")]
+        public float throwReleaseTimeout = 1f;
 
         [Header("Tiro")]
         public float shotSpeed = 14f;
         [Tooltip("Distancia al palo que se deja al apuntar con el stick (m)")]
         public float shotPostMargin = 0.3f;
+
+        [Header("Barra de tiro (K para empezar a cargar, K otra vez para tirar)")]
+        [Tooltip("Tiempo que tarda la barra en llenarse (s). Si se llena entera, tira solo con la peor calidad")]
+        public float shotMeterDuration = 1f;
+        [Tooltip("Inicio de la zona verde (0-1 de la barra)")]
+        [Range(0f, 1f)] public float shotGreenStart = 0.85f;
+        [Tooltip("Ancho de la zona verde (0-1 de la barra)")]
+        [Range(0f, 1f)] public float shotGreenWidth = 0.08f;
+        [Tooltip("Calidad máxima fuera del verde (justo al lado de la zona). Baja hasta 0 en los extremos de la barra")]
+        [Range(0f, 1f)] public float shotOffGreenMaxQuality = 0.7f;
+        [Tooltip("Cuánto sube el jugador mientras carga, con la barra llena (m, solo visual)")]
+        public float shotRiseHeight = 0.25f;
+        [Tooltip("Potencia del tiro con calidad 0 respecto a la normal (con calidad 1 es la normal)")]
+        [Range(0f, 1f)] public float shotMinPowerFactor = 0.6f;
+        [Tooltip("Desvío máximo del tiro con calidad 0 (grados). Con calidad 1 va donde apuntas")]
+        public float shotMaxErrorAngle = 12f;
 
         [Header("Portero")]
         [Tooltip("Velocidad del portero siguiendo la pelota (m/s)")]
@@ -170,6 +192,20 @@ namespace Waterpulse.Config
         public string awayTeamName = "VISITANT";
         [Tooltip("Tiempo que se ve en pantalla el nombre de una habilidad al activarse (s)")]
         public float abilityAnnounceDuration = 1f;
+
+        [Header("Modelo de los jugadores de campo LOCAL (requiere regenerar la escena)")]
+        [Tooltip("Prefab con el modelo y su Animator. Vacío = el de Prefabs/Waterpolo_TreadingWater; si no existe, cápsulas")]
+        public GameObject homePlayerModel;
+        [Tooltip("Posición del modelo respecto al jugador (m). Y negativa = más hundido en el agua")]
+        public Vector3 playerModelOffset = new Vector3(0f, -0.825f, 0f);
+        [Tooltip("Escala del modelo")]
+        public float playerModelScale = 1.5f;
+        [Tooltip("Hueso de la mano en la que el modelo lleva la pelota (solo visual)")]
+        public HumanBodyBones ballHandBone = HumanBodyBones.RightHand;
+        [Tooltip("Posición de la pelota respecto al hueso de la mano, en sus ejes (m). Para dejarla en la palma")]
+        public Vector3 ballHandOffset = new Vector3(0f, 0.1f, 0f);
+        [Tooltip("Tiempo en que la pelota visible pasa de la mano a su trayectoria al soltarla (s)")]
+        public float ballReleaseBlendTime = 0.1f;
 
         [Header("Piscina (requiere regenerar la escena)")]
         [Tooltip("Largo del campo, de portería a portería (m)")]

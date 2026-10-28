@@ -123,8 +123,20 @@ namespace Waterpulse.Gameplay
 
         public bool Shoot(PlayerController from, Vector2 stick) => Shoot(from, stick, 1f, config.saveReach, false);
 
+        // Tiro normal soltado desde la barra de tiro: con calidad 1 (verde) es el tiro de siempre; con menos,
+        // sale más flojo y desviado hacia un lado al azar (puede irse fuera)
+        public bool Shoot(PlayerController from, Vector2 stick, float quality)
+        {
+            float power = ShotMeter.PowerFactor(quality, config.shotMinPowerFactor);
+            float error = ShotMeter.ErrorAngle(quality, config.shotMaxErrorAngle) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+            return Shoot(from, stick, power, config.saveReach, false, error);
+        }
+
         // Tiro con parámetros propios (lo usa el Xut del Tràngol): más rápido y con menos alcance de parada
         public bool Shoot(PlayerController from, Vector2 stick, float speedMultiplier, float saveReach, bool special)
+            => Shoot(from, stick, speedMultiplier, saveReach, special, 0f);
+
+        bool Shoot(PlayerController from, Vector2 stick, float speedMultiplier, float saveReach, bool special, float errorAngle)
         {
             if (Holder != from || IsFrozen) return false;
 
@@ -133,6 +145,9 @@ namespace Waterpulse.Gameplay
             Vector2 aim = stick.sqrMagnitude > 0.0001f ? stick.normalized : Vector2.zero;
             float lateral = aim.y * (config.goalWidth * 0.5f - config.shotPostMargin);
             Vector3 point = pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
+            // Desvío: desplaza el punto de llegada en lateral lo que corresponde al ángulo a esa distancia
+            float distance = FlatDistance(body.position, point);
+            point += Vector3.forward * (Mathf.Tan(errorAngle * Mathf.Deg2Rad) * distance);
             Launch(FlightKind.Shot, from, null, point, config.shotSpeed * speedMultiplier, ShotOvershoot);
             IsSpecialShot = special;
             ShotSaveReach = saveReach;

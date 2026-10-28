@@ -282,6 +282,62 @@ namespace Waterpulse.Tests.EditMode
             AssertRef(indicators[0], "viewCamera", Object.FindFirstObjectByType<Camera>());
         }
 
+        [Test]
+        public void Build_ModelOnlyOnHomeFieldPlayers()
+        {
+            MatchSceneBuilder.Build();
+
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            bool hasModel = config.homePlayerModel != null
+                            || AssetDatabase.LoadAssetAtPath<GameObject>(MatchSceneBuilder.DefaultPlayerModelPath) != null;
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                var animator = p.GetComponentInChildren<PlayerAnimator>();
+                bool expected = hasModel && p.Team == TeamSide.Home && !p.IsGoalkeeper;
+                Assert.AreEqual(expected, animator != null, p.name + " modelo animado (solo los de campo locales)");
+                if (animator != null) AssertRef(animator, "player", p);
+            }
+        }
+
+        [Test]
+        public void BuildWithoutRivals_OnlyHomeTeam()
+        {
+            MatchSceneBuilder.Build(false);
+
+            var players = Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            Assert.AreEqual(4, players.Length, "solo el equipo local (3 de campo + portero)");
+            Assert.IsTrue(players.All(p => p.Team == TeamSide.Home));
+
+            MatchSceneBuilder.Build();   // deja la escena normal para el resto de tests
+            Assert.AreEqual(8, Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length);
+        }
+
+        [Test]
+        public void Build_BallHasSeparateVisual()
+        {
+            MatchSceneBuilder.Build();
+
+            var ball = Object.FindFirstObjectByType<BallController>();
+            Assert.IsNull(ball.GetComponent<MeshRenderer>(), "la pelota física no se ve");
+            var visual = ball.GetComponentInChildren<BallVisual>();
+            Assert.IsNotNull(visual, "esfera visible hija");
+            Assert.IsNotNull(visual.GetComponent<MeshRenderer>());
+            Assert.IsNull(visual.GetComponent<Collider>(), "la esfera visible no choca");
+            AssertRef(visual, "ball", ball);
+        }
+
+        [Test]
+        public void Build_ShotMeterView()
+        {
+            MatchSceneBuilder.Build();
+
+            var views = Object.FindObjectsByType<ShotMeterView>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, views.Length, "barra de tiro");
+            AssertRef(views[0], "ball", Object.FindFirstObjectByType<BallController>());
+            AssertRef(views[0], "viewCamera", Object.FindFirstObjectByType<Camera>());
+            AssertNoMissingReferences(views[0]);
+        }
+
         static void AssertRef(Object target, string field, Object expected)
         {
             Assert.IsNotNull(target, $"falta {field}");
