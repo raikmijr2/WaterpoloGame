@@ -283,18 +283,16 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_ModelOnlyOnHomeFieldPlayers()
+        public void Build_ModelsOnFieldPlayersOnly()
         {
             MatchSceneBuilder.Build();
 
             var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
-            bool hasModel = config.homePlayerModel != null
-                            || AssetDatabase.LoadAssetAtPath<GameObject>(MatchSceneBuilder.DefaultPlayerModelPath) != null;
             foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
             {
                 var animator = p.GetComponentInChildren<PlayerAnimator>();
-                bool expected = hasModel && p.Team == TeamSide.Home && !p.IsGoalkeeper;
-                Assert.AreEqual(expected, animator != null, p.name + " modelo animado (solo los de campo locales)");
+                bool expected = !p.IsGoalkeeper && MatchSceneBuilder.PlayerModel(config, p.Team) != null;
+                Assert.AreEqual(expected, animator != null, p.name + " modelo animado (solo los de campo con modelo de su equipo)");
                 if (animator != null) AssertRef(animator, "player", p);
             }
         }

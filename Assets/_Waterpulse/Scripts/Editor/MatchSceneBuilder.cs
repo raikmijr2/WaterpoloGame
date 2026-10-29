@@ -35,6 +35,7 @@ namespace Waterpulse.EditorTools
         public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
         public const string UsersConfigPath = RootDir + "/Config/UsersConfig.asset";
         public const string DefaultPlayerModelPath = RootDir + "/Prefabs/Waterpolo_TreadingWater.prefab";
+        public const string DefaultEnemyModelPath = RootDir + "/Prefabs/WaterpoloEnemy.prefab";
         internal const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -420,10 +421,10 @@ namespace Waterpulse.EditorTools
                 SetRef(brain, "teamAI", teamAI);
             }
 
-            // Visual: los jugadores de campo locales llevan el modelo animado (si existe); el resto, cápsulas
+            // Visual: los jugadores de campo llevan el modelo animado de su equipo (si existe); los porteros, cápsulas
             var visual = new GameObject("Visual").transform;
             visual.SetParent(go.transform, false);
-            var model = team == TeamSide.Home && role != PlayerRole.Goalkeeper ? PlayerModel(c) : null;
+            var model = role != PlayerRole.Goalkeeper ? PlayerModel(c, team) : null;
             if (model != null)
             {
                 AddPlayerModel(c, model, visual, go.GetComponent<PlayerController>());
@@ -439,8 +440,12 @@ namespace Waterpulse.EditorTools
             return go;
         }
 
-        static GameObject PlayerModel(GameConfigSO c) =>
-            c.homePlayerModel != null ? c.homePlayerModel : AssetDatabase.LoadAssetAtPath<GameObject>(DefaultPlayerModelPath);
+        public static GameObject PlayerModel(GameConfigSO c, TeamSide team)
+        {
+            var configured = team == TeamSide.Home ? c.homePlayerModel : c.awayPlayerModel;
+            if (configured != null) return configured;
+            return AssetDatabase.LoadAssetAtPath<GameObject>(team == TeamSide.Home ? DefaultPlayerModelPath : DefaultEnemyModelPath);
+        }
 
         // Modelo animado dentro de "Visual" (así el saltito del pase y la subida del tiro también lo mueven)
         // y PlayerAnimator junto a su Animator para los parámetros y el evento ReleaseBall

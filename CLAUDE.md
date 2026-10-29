@@ -225,7 +225,8 @@ Assets/_Waterpulse/
     - **HUD**: `ShotMeterView`, una barra vertical al lado del jugador del humano mientras carga. Solo la del equipo humano.
     - Controles: "K + K" y "B + B" en la tabla.
     - Limitación: la pelota no sube con el jugador (su Y sigue fija hasta la altura visual de la Fase 10).
-  - Fase 8 (pedido por el usuario, código hecho, pendiente de verificación): modelo animado del usuario en los 3 jugadores de campo LOCAL. Los porteros y el visitante siguen con cápsulas.
+  - Fase 8 (pedido por el usuario, código hecho, pendiente de verificación): modelo animado del usuario en los jugadores de campo de los dos equipos. Los porteros siguen con cápsulas.
+    - **Rival** (añadido después): prefab `Prefabs/WaterpoloEnemy` (o `GameConfigSO.awayPlayerModel`), con su Animator Controller (`waterpolo_animaciones_enemigo/.../AnimationControllerEnemy`), los mismos parámetros y la misma escala y posición que el local.
     - **Modelo**: prefab `Prefabs/Waterpolo_TreadingWater` (o `GameConfigSO.homePlayerModel`), dentro del hijo `Visual`, con `playerModelOffset` (0, −0,825, 0) y `playerModelScale` 1,5 (subida de 1 a petición del usuario: se veían pequeños). El generador deja su Rigidbody cinemático y su collider desactivado.
     - **Animator Controller** del usuario (`Anims/AnimationController`): estados TreadingWater, SwimFast, Throw y StealTouch. Parámetros: `Speed` (float, velocidad / máxima), `Throw` (trigger, al pulsar pasar y al soltar la barra de tiro) y `Steal` (trigger, al intentar robar al alcance, salga bien o mal).
     - **`PlayerAnimator`** (Gameplay): va en el objeto del Animator y rellena esos parámetros. Recibe el evento `ReleaseBall` del clip Throw, que es cuando sale la pelota en el pase y en el tiro. Si el evento no llega en `throwReleaseTimeout` (1 s), sale igualmente.

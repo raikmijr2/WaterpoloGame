@@ -193,10 +193,12 @@ namespace Waterpulse.Config
         [Tooltip("Tiempo que se ve en pantalla el nombre de una habilidad al activarse (s)")]
         public float abilityAnnounceDuration = 1f;
 
-        [Header("Modelo de los jugadores de campo LOCAL (requiere regenerar la escena)")]
-        [Tooltip("Prefab con el modelo y su Animator. Vacío = el de Prefabs/Waterpolo_TreadingWater; si no existe, cápsulas")]
+        [Header("Modelos de los jugadores de campo (requiere regenerar la escena; los porteros son cápsulas)")]
+        [Tooltip("Prefab del equipo LOCAL con el modelo y su Animator. Vacío = el de Prefabs/Waterpolo_TreadingWater; si no existe, cápsulas")]
         public GameObject homePlayerModel;
-        [Tooltip("Posición del modelo respecto al jugador (m). Y negativa = más hundido en el agua")]
+        [Tooltip("Prefab del equipo VISITANTE. Vacío = el de Prefabs/WaterpoloEnemy; si no existe, cápsulas")]
+        public GameObject awayPlayerModel;
+        [Tooltip("Posición del modelo respecto al jugador (m), para los dos equipos. Y negativa = más hundido en el agua")]
         public Vector3 playerModelOffset = new Vector3(0f, -0.825f, 0f);
         [Tooltip("Escala del modelo")]
         public float playerModelScale = 1.5f;
