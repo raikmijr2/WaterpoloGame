@@ -20,6 +20,8 @@ namespace Waterpulse.Gameplay
         [SerializeField] AbilityDefinitionSO powerShot;
         [Tooltip("Acelerón: L sin la pelota (vacío = sin habilidad)")]
         [SerializeField] AbilityDefinitionSO boost;
+        [Tooltip("Muro de agua: L con el portero (solo porteros; vacío = sin habilidad)")]
+        [SerializeField] AbilityDefinitionSO wall;
 
         Rigidbody body;
         IPlayerBrain defaultBrain;
@@ -43,7 +45,7 @@ namespace Waterpulse.Gameplay
         PendingThrow pendingThrow;
         float throwTimer;
         Vector3 passAim;
-        Vector2 shotStick;
+        float shotAim;              // punto de mira mientras carga: -1 un palo, 0 centro, 1 el otro
         float shotQuality;
         float shotRise;             // altura a la que se quedó al soltar la barra
 
@@ -51,6 +53,9 @@ namespace Waterpulse.Gameplay
         public PlayerRole Role => role;
         public AbilityDefinitionSO PowerShot => powerShot;
         public AbilityDefinitionSO Boost => boost;
+        public AbilityDefinitionSO Wall => wall;
+        // La habilidad especial que enseña el HUD: el Xut del Tràngol en los de campo, el muro en el portero
+        public AbilityDefinitionSO SpecialAbility => powerShot != null ? powerShot : wall;
         public BallController Ball => ball;
         public bool IsGoalkeeper => role == PlayerRole.Goalkeeper;
         public bool IsBoosting => boostTimer > 0f;
@@ -63,6 +68,8 @@ namespace Waterpulse.Gameplay
         public ShotMeter ShotMeter => shotMeter;
         public float ShotGreenStart => shotMeter != null ? shotMeter.GreenStart : 0f;
         public float ShotGreenEnd => shotMeter != null ? shotMeter.GreenEnd : 0f;
+        // Punto de mira del tiro que carga (-1 a 1, a lo ancho de la portería). Se mueve con arriba/abajo
+        public float ShotAim => shotAim;
         // Quieto mientras pasa (saltito) o carga el tiro
         public bool IsBusy => IsChargingShot || pendingThrow != PendingThrow.None || freezeTimer > 0f;
         // Velocidad respecto a la máxima (0 = quieto, 1 = máxima; más durante un acelerón)
@@ -163,13 +170,13 @@ namespace Waterpulse.Gameplay
 
             if (shotMeter.IsCharging)
             {
-                // Segunda K: la calidad es la de donde está la barra. Si se llena, tira solo (con la peor).
-                // Apunta con el stick del momento de soltar
+                // Arriba/abajo mueve el punto de mira por la portería (en tiempo real: igual de rápido con la cámara lenta).
+                // Segunda K: la calidad es la de donde está la barra. Si se llena, tira solo (con la peor)
+                shotAim = Mathf.Clamp(shotAim + intent.Move.y * config.shotAimSpeed * Time.unscaledDeltaTime, -1f, 1f);
                 bool full = shotMeter.Tick(dt);
                 if (intent.Shoot || full)
                 {
                     shotRise = shotMeter.Fill * config.shotRiseHeight;
-                    shotStick = intent.Move;
                     shotQuality = shotMeter.Release();
                     // Sin animación sale al momento, como antes
                     BeginThrow(PendingThrow.Shot, HasThrowAnimation ? config.throwReleaseTimeout : 0f);
@@ -187,8 +194,9 @@ namespace Waterpulse.Gameplay
                 if (intent.Pass) StartPass();
                 else if (intent.Shoot)
                 {
-                    // Primera K: empieza a cargar; se queda quieto y va subiendo
+                    // Primera K: empieza a cargar apuntando al centro; se queda quieto y va subiendo
                     boostTimer = 0f;
+                    shotAim = 0f;
                     shotMeter.Begin();
                 }
             }
@@ -278,7 +286,7 @@ namespace Waterpulse.Gameplay
             var kind = pendingThrow;
             pendingThrow = PendingThrow.None;
             if (kind == PendingThrow.Pass) ball.Pass(this, passAim);
-            else if (kind == PendingThrow.Shot) ball.Shoot(this, shotStick, shotQuality);
+            else if (kind == PendingThrow.Shot) ball.ShootAt(this, shotAim, shotQuality);
         }
 
         // Saltito del pase y subida mientras carga el tiro: solo se mueve el hijo "Visual"
@@ -297,16 +305,13 @@ namespace Waterpulse.Gameplay
             visual.localPosition = local;
         }
 
-        // Dash: sirve para recuperar velocidad. Cuanto más lento vas, más fuerte; a velocidad máxima no se nota,
-        // así que no se hace ni gasta estamina. No se encadena con otro acelerón
-        public float DashStrength => DashPower.Strength(FlatSpeed(), config.maxSpeed);
-
+        // Dash: un impulso corto a dashSpeedMultiplier × la velocidad máxima, también yendo a tope (decidido por el usuario;
+        // antes solo servía para recuperar velocidad). Gasta estamina y no se encadena con otro acelerón
         void TryDash()
         {
-            if (IsBoosting || stamina == null || DashStrength < config.dashMinStrength) return;
+            if (IsBoosting || stamina == null) return;
             if (!stamina.TrySpendDash()) return;
-            float multiplier = DashPower.SpeedMultiplier(FlatSpeed(), config.maxSpeed, config.dashSpeedMultiplier);
-            StartBoost(AimDirection(), multiplier, config.dashDuration);
+            StartBoost(AimDirection(), config.dashSpeedMultiplier, config.dashDuration);
             GameEvents.RaiseDashUsed(gameObject);
         }
 

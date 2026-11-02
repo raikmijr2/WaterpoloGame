@@ -6,7 +6,7 @@ using Waterpulse.Core;
 namespace Waterpulse.Brains
 {
     // Input del jugador humano. ControlSwitcher lo asigna al jugador que controla en cada momento.
-    // El mando (stick izquierdo, A, B, Y, RB, LB) queda enlazado para los controles táctiles de la Fase 9.
+    // Teclado, mando (stick izquierdo, A, B, Y, RB, LB) y controles táctiles (TouchInput), los tres a la vez.
     // Nadar lento: con Espacio (o LB) el stick se escala; en táctil basta con inclinar poco el joystick
     public class HumanBrain : MonoBehaviour, IPlayerBrain
     {
@@ -85,13 +85,16 @@ namespace Waterpulse.Brains
         {
             Vector2 stick = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f);
             if (slow.IsPressed()) stick *= config.slowSwimMultiplier;
+            // El joystick táctil manda si se está tocando más que el teclado o el mando
+            Vector2 touch = Vector2.ClampMagnitude(TouchInput.Move, 1f);
+            if (touch.sqrMagnitude > stick.sqrMagnitude) stick = touch;
             return new PlayerIntent
             {
                 Move = stick,
-                Pass = pass.WasPressedThisFrame(),
-                Shoot = shoot.WasPressedThisFrame(),
-                Ability = ability.WasPressedThisFrame(),
-                Dash = dash.WasPressedThisFrame(),
+                Pass = pass.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Pass),
+                Shoot = shoot.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Shoot),
+                Ability = ability.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Ability),
+                Dash = dash.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Dash),
             };
         }
     }

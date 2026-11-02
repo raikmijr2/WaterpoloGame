@@ -107,10 +107,22 @@ namespace Waterpulse.Tests.EditMode
             Assert.IsFalse(home.IsAggressive, "compañeros del humano: solo marcajes");
             Assert.IsTrue(away.IsAggressive, "rival: IA completa");
 
-            var difficulty = AssetDatabase.LoadAssetAtPath<DifficultySO>(MatchSceneBuilder.DifficultyPath);
-            Assert.IsNotNull(difficulty, "asset de dificultad");
-            AssertRef(home, "difficulty", difficulty);
-            AssertRef(away, "difficulty", difficulty);
+            // Dos niveles (Fàcil y Difícil), en el orden del menú; cada TeamAI usa el elegido
+            var easy = AssetDatabase.LoadAssetAtPath<DifficultySO>(MatchSceneBuilder.EasyDifficultyPath);
+            var hard = AssetDatabase.LoadAssetAtPath<DifficultySO>(MatchSceneBuilder.HardDifficultyPath);
+            Assert.IsNotNull(easy, "nivel Fàcil");
+            Assert.IsNotNull(hard, "nivel Difícil");
+            Assert.IsTrue(easy.showControlHints, "en Fàcil sale la guía");
+            Assert.IsFalse(hard.showControlHints, "en Difícil no");
+            Assert.IsFalse(easy.useAbilities, "en Fàcil la IA no usa habilidades");
+            Assert.Less(hard.reactionTime, easy.reactionTime, "en Difícil reacciona antes");
+            foreach (var teamAI in teamAIs)
+            {
+                var levels = new SerializedObject(teamAI).FindProperty("levels");
+                Assert.AreEqual(2, levels.arraySize);
+                Assert.AreEqual(easy, levels.GetArrayElementAtIndex(0).objectReferenceValue);
+                Assert.AreEqual(hard, levels.GetArrayElementAtIndex(1).objectReferenceValue);
+            }
 
             // Cada jugador de campo usa el TeamAI de su equipo
             foreach (var brain in Object.FindObjectsByType<AIBrain>(FindObjectsSortMode.None))
@@ -167,14 +179,23 @@ namespace Waterpulse.Tests.EditMode
             Assert.IsNotNull(energyConfig, "EnergyConfig");
             Assert.AreEqual(AbilityKind.PowerShot, xut.kind);
             Assert.AreEqual(AbilityKind.Boost, torpede.kind);
+            var murAigua = AssetDatabase.LoadAssetAtPath<AbilityDefinitionSO>(MatchSceneBuilder.MurAiguaPath);
+            var keeperEnergy = AssetDatabase.LoadAssetAtPath<EnergyConfigSO>(MatchSceneBuilder.KeeperEnergyConfigPath);
+            Assert.AreEqual(AbilityKind.Wall, murAigua.kind);
+            Assert.AreEqual(100f, murAigua.cost, "el muro necesita la energía llena");
+            Assert.AreEqual(0f, keeperEnergy.initialEnergy, "el portero empieza sin energía");
+            Assert.AreEqual(60f, keeperEnergy.maxEnergy / keeperEnergy.passiveRechargePerSecond, 0.01f, "se llena en ~60 s");
 
             foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
             {
                 if (p.IsGoalkeeper)
                 {
+                    // Los porteros solo tienen el Mur d'Aigua, con su energía propia (se recarga sola)
                     Assert.IsNull(p.PowerShot, p.name);
                     Assert.IsNull(p.Boost, p.name);
-                    Assert.IsNull(p.GetComponent<AbilityBehaviour>(), p.name);
+                    Assert.AreEqual(murAigua, p.Wall, p.name);
+                    Assert.IsNotNull(p.GetComponent<MurAiguaAbility>(), p.name + " muro");
+                    AssertRef(p.GetComponent<PlayerEnergy>(), "config", keeperEnergy);
                     continue;
                 }
 
@@ -337,6 +358,81 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
+        public void Build_TouchControlsAndHints()
+        {
+            MatchSceneBuilder.Build();
+
+            var touch = Object.FindFirstObjectByType<TouchControls>();
+            Assert.IsNotNull(touch, "controles táctiles");
+            AssertNoMissingReferences(touch);
+            var group = new SerializedObject(touch).FindProperty("controls").objectReferenceValue as GameObject;
+            Assert.IsFalse(group.activeSelf, "apagados hasta saber si hay pantalla táctil (si no, no se crea el mando virtual)");
+
+            // Joystick dinámico y cuatro botones (tres grandes que cambian de función y DASH), y el aviso de girar el móvil
+            Assert.AreEqual(1, group.GetComponentsInChildren<TouchJoystick>(true).Length, "joystick");
+            var buttons = group.GetComponentsInChildren<TouchActionButton>(true);
+            Assert.AreEqual(4, buttons.Length, "botones");
+            foreach (var button in buttons) AssertNoMissingReferences(button);
+            Assert.AreEqual(0, group.GetComponentsInChildren<UnityEngine.InputSystem.OnScreen.OnScreenControl>(true).Length,
+                            "sin mando virtual: las pulsaciones van por TouchInput");
+
+            var hints = Object.FindFirstObjectByType<ControlHints>();
+            Assert.IsNotNull(hints, "guía de controles");
+            AssertNoMissingReferences(hints);
+        }
+
+        [Test]
+        public void Build_KeeperWallSlowMotionAndWaves()
+        {
+            MatchSceneBuilder.Build();
+
+            // Un muro por portería, conectado a su portero; solo el portero rival lo levanta solo
+            var walls = Object.FindObjectsByType<WaterWall>(FindObjectsSortMode.None);
+            Assert.AreEqual(2, walls.Length, "un muro por portería");
+            foreach (var wall in walls) AssertNoMissingReferences(wall);
+            foreach (var keeper in Object.FindObjectsByType<GoalkeeperController>(FindObjectsSortMode.None))
+            {
+                AssertNoMissingReferences(keeper);
+                bool rival = keeper.GetComponent<PlayerController>().Team == TeamSide.Away;
+                Assert.AreEqual(rival, new SerializedObject(keeper).FindProperty("useWall").boolValue, keeper.name);
+            }
+
+            var slowMotion = Object.FindFirstObjectByType<ShotSlowMotion>();
+            Assert.IsNotNull(slowMotion, "cámara lenta al cargar el tiro");
+            AssertNoMissingReferences(slowMotion);
+
+            // El agua es una malla subdividida (para las onadas), escalada al campo
+            var water = Object.FindFirstObjectByType<PoolBounds>().transform.Find("Water");
+            var mesh = water.GetComponent<MeshFilter>().sharedMesh;
+            Assert.IsNotNull(mesh, "malla del agua");
+            Assert.Greater(mesh.vertexCount, 1000, "subdividida");
+        }
+
+        [Test]
+        public void Build_WaterEffectsAreWired()
+        {
+            MatchSceneBuilder.Build();
+
+            // Todos los jugadores (también los porteros) llevan espuma al nadar, dash y acelerón
+            foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
+            {
+                var fx = p.GetComponent<PlayerWaterFx>();
+                Assert.IsNotNull(fx, p.name + " partículas de agua");
+                AssertNoMissingReferences(fx);
+                var xut = p.GetComponent<XutTragolAbility>();
+                if (xut != null) Assert.AreEqual("PowerShotColumn", new SerializedObject(xut).FindProperty("splash").objectReferenceValue.name, p.name);
+            }
+
+            var ballFx = Object.FindFirstObjectByType<BallController>().GetComponent<BallWaterFx>();
+            Assert.IsNotNull(ballFx, "esquitxades de la pelota");
+            AssertNoMissingReferences(ballFx);
+
+            // Las gotas usan la textura suave (sin ella se verían cuadrados)
+            var renderer = ballFx.GetComponentInChildren<ParticleSystemRenderer>();
+            Assert.IsNotNull(renderer.sharedMaterial.GetTexture("_BaseMap"), "textura de las gotas");
+        }
+
+        [Test]
         public void Build_PlayerMarkersAreWired()
         {
             MatchSceneBuilder.Build();
@@ -357,6 +453,28 @@ namespace Waterpulse.Tests.EditMode
             Assert.IsNotNull(arcs, "sprite de los arcos");
             Assert.IsNotNull(arcs.sprite);
             Assert.IsNull(marker.GetComponent<MeshRenderer>(), "ya no es el triángulo");
+        }
+
+        [Test]
+        public void Build_StandsAroundThePool_InMatchAndMenu()
+        {
+            // Las gradas del equipo las crea el generador: si se ponen a mano, se pierden al regenerar la escena
+            var config = AssetDatabase.LoadAssetAtPath<GameConfigSO>(MatchSceneBuilder.ConfigPath);
+            MatchSceneBuilder.Build();
+            var stands = Object.FindObjectsByType<Gradas>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, stands.Length, "gradas en el partido");
+            Assert.Greater(stands[0].length + 2f * stands[0].gap, config.poolLength, "fuera del agua a lo largo");
+            Assert.Greater(stands[0].width + 2f * stands[0].gap, config.poolWidth, "fuera del agua a lo ancho");
+
+            MenuSceneBuilder.Build();
+            Assert.AreEqual(1, Object.FindObjectsByType<Gradas>(FindObjectsSortMode.None).Length, "gradas en el menú");
+
+            // Pabellón del menú: las paredes, más allá de la vuelta de la cámara (nunca la tapan)
+            var menu = AssetDatabase.LoadAssetAtPath<MenuConfigSO>(MenuSceneBuilder.ConfigPath);
+            var hall = GameObject.Find("Hall");
+            Assert.IsNotNull(hall, "pabellón alrededor de la piscina");
+            var wall = hall.transform.Find("WallNorth");
+            Assert.Greater(wall.localPosition.z, menu.cameraDistance, "la pared queda fuera de la vuelta de la cámara");
         }
 
         [Test]

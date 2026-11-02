@@ -40,6 +40,23 @@ namespace Waterpulse.EditorTools
         const int MainButtonFont = 46;
         const float BadgeTilt = 8f;
         const float RankingLineSpacing = 1.1f;
+        // Pabellón del fondo del menú (m)
+        const float HallMargin = 4f;          // de la vuelta de la cámara a las paredes
+        const float HallPoolEdge = 0.5f;      // el suelo empieza por fuera de la pared de la piscina
+        const float HallWallHeight = 16f;     // más alto que lo que ve la cámara (11 m de altura, mirando hacia abajo)
+        const float HallWallThickness = 0.5f;
+        const float HallFloorThickness = 0.2f;
+        // Tria la dificultat: un botón por nivel y debajo una línea que lo explica (en el orden de los niveles)
+        static readonly Vector2 DifficultyBoxSize = new Vector2(900f, 600f);
+        const float DifficultyFirstY = -190f;
+        const float DifficultyRowStep = 170f;
+        const float DifficultyHintGap = 70f;
+        const float DifficultyBackY = -520f;
+        static readonly string[] DifficultyHints =
+        {
+            "Per aprendre: rivals més lents i les tecles sempre a la vista",
+            "Rivals ràpids que fan servir les habilitats, sense ajudes",
+        };
 
         // Colores propios del menú (el resto son los de UiFactory y SharedPages, compartidos con el partido)
         static readonly Color ShadeColor = new Color(0.02f, 0.07f, 0.15f, 0.45f);   // oscurece la piscina para que se lea el texto
@@ -68,8 +85,8 @@ namespace Waterpulse.EditorTools
             var menuConfig = LoadOrCreate<MenuConfigSO>(ConfigPath);
             var usersConfig = LoadOrCreate<UsersConfigSO>(UsersConfigPath);
             var scoringConfig = LoadOrCreate<ScoringConfigSO>(ScoringConfigPath);
+            UiSpriteGenerator.EnsureSprites();   // formas de la interfaz (y la gota de las partículas, que usan los materiales), antes de montar el menú
             var mats = new Materials();
-            UiSpriteGenerator.EnsureSprites();   // formas de la interfaz, antes de montar el menú
 
             // Fondo: la misma piscina que el partido, sin jugadores y con la pelota (solo decorado) en el centro
             BuildLight();
@@ -77,6 +94,7 @@ namespace Waterpulse.EditorTools
             BuildGoal(config, mats, pool.transform, -1f, TeamSide.Home);
             BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
             Prim(PrimitiveType.Sphere, "Ball", null, pool.Center, Vector3.one * config.ballRadius * 2f, mats.Ball, false);
+            BuildHall(config, menuConfig, mats, pool);
             BuildCamera(menuConfig, pool);
 
             // Música del menú y sonidos de la interfaz (las habilidades, si el partido ya se ha generado alguna vez)
@@ -90,6 +108,30 @@ namespace Waterpulse.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             RegisterBuildScenes();
             AssetDatabase.SaveAssets();
+        }
+
+        // Pabellón alrededor de la piscina para que no se vea el vacío detrás de las gradas: suelo alrededor del agua y
+        // cuatro paredes. Todo más allá de la vuelta de la cámara (cameraDistance + HallMargin), así nunca la tapa
+        static void BuildHall(GameConfigSO c, MenuConfigSO menu, Materials mats, PoolBounds pool)
+        {
+            var hall = new GameObject("Hall").transform;
+            hall.position = pool.Center;
+            float half = menu.cameraDistance + HallMargin;   // medio lado del pabellón (cuadrado)
+            float poolX = c.poolLength * 0.5f + HallPoolEdge, poolZ = c.poolWidth * 0.5f + HallPoolEdge;
+
+            // Suelo: cuatro franjas alrededor de la piscina (no tapan el agua)
+            float stripX = half - poolX, stripZ = half - poolZ;
+            Prim(PrimitiveType.Cube, "FloorEast", hall, new Vector3(poolX + stripX * 0.5f, -HallFloorThickness * 0.5f, 0f), new Vector3(stripX, HallFloorThickness, half * 2f), mats.HallFloor, false, false);
+            Prim(PrimitiveType.Cube, "FloorWest", hall, new Vector3(-poolX - stripX * 0.5f, -HallFloorThickness * 0.5f, 0f), new Vector3(stripX, HallFloorThickness, half * 2f), mats.HallFloor, false, false);
+            Prim(PrimitiveType.Cube, "FloorNorth", hall, new Vector3(0f, -HallFloorThickness * 0.5f, poolZ + stripZ * 0.5f), new Vector3(poolX * 2f, HallFloorThickness, stripZ), mats.HallFloor, false, false);
+            Prim(PrimitiveType.Cube, "FloorSouth", hall, new Vector3(0f, -HallFloorThickness * 0.5f, -poolZ - stripZ * 0.5f), new Vector3(poolX * 2f, HallFloorThickness, stripZ), mats.HallFloor, false, false);
+
+            // Paredes
+            float y = HallWallHeight * 0.5f, side = half * 2f;
+            Prim(PrimitiveType.Cube, "WallNorth", hall, new Vector3(0f, y, half), new Vector3(side, HallWallHeight, HallWallThickness), mats.HallWall, false, false);
+            Prim(PrimitiveType.Cube, "WallSouth", hall, new Vector3(0f, y, -half), new Vector3(side, HallWallHeight, HallWallThickness), mats.HallWall, false, false);
+            Prim(PrimitiveType.Cube, "WallEast", hall, new Vector3(half, y, 0f), new Vector3(HallWallThickness, HallWallHeight, side), mats.HallWall, false, false);
+            Prim(PrimitiveType.Cube, "WallWest", hall, new Vector3(-half, y, 0f), new Vector3(HallWallThickness, HallWallHeight, side), mats.HallWall, false, false);
         }
 
         // Escenas del build: primero el menú (es la que se abre al cargar el juego) y después el partido.
@@ -210,6 +252,22 @@ namespace Waterpulse.EditorTools
             var reset = Confirm(resetPage.transform, BoxAnchor, "Vols esborrar el teu rècord?", "No es pot desfer.");
             MakeDanger(reset.Yes);
 
+            // Tria la dificultat (sale al pulsar "Partit individual"): un botón por nivel con una línea que lo explica
+            var levels = MatchSceneBuilder.DifficultyLevels();
+            var difficultyPage = StretchedGroup(root, "DifficultyPage");
+            var difficultyBox = Box(difficultyPage.transform, "Box", BoxAnchor, DifficultyBoxSize);
+            Heading(difficultyBox, "Tria la dificultat");
+            var difficultyButtons = new Button[levels.Length];
+            for (int i = 0; i < levels.Length; i++)
+            {
+                float y = DifficultyFirstY - i * DifficultyRowStep;
+                difficultyButtons[i] = MenuButton<Button>(difficultyBox, "Level" + i, levels[i].displayName, BoxButtonFont, Top, new Vector2(0f, y), BoxButtonSize);
+                var hint = Label(difficultyBox, "Level" + i + "Hint", 26, Top, new Vector2(0f, y - DifficultyHintGap), new Vector2(DifficultyBoxSize.x - 80f, 36f), true);
+                hint.text = DifficultyHints[Mathf.Min(i, DifficultyHints.Length - 1)];
+                hint.color = SoftText;
+            }
+            var difficultyBack = MenuButton<Button>(difficultyBox, "BackButton", "Tornar", BoxButtonFont, Top, new Vector2(0f, DifficultyBackY), BoxButtonSize);
+
             WireOptions(canvasGo.AddComponent<OptionsMenu>(), menu, options);
 
             var users = canvasGo.AddComponent<UsersMenu>();
@@ -252,6 +310,9 @@ namespace Waterpulse.EditorTools
             SetRef(flow, "optionsPage", optionsPage);
             SetRef(flow, "controlsPage", controlsPage);
             SetRef(flow, "confirmResetPage", resetPage);
+            SetRef(flow, "difficultyPage", difficultyPage);
+            MatchSceneBuilder.SetRefs(flow, "difficultyButtons", difficultyButtons);
+            SetRef(flow, "difficultyBackButton", difficultyBack);
             SetRef(flow, "newUserButton", newUserButton);
             SetRef(flow, "usersBackButton", usersBack);
             SetRef(flow, "nameInput", nameInput);

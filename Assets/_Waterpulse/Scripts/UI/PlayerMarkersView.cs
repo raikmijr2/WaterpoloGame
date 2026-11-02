@@ -7,7 +7,8 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.UI
 {
     // Marcas sobre los jugadores, en pantalla:
-    // - Una mini placa (PlayerPlate) sobre cada jugador de campo del humano, con su energía y si ya puede usar la habilidad.
+    // - Una mini placa (PlayerPlate) sobre cada jugador del humano (también el portero, con la energía del muro),
+    //   con su energía y si ya puede usar la habilidad.
     // - Una flecha sobre quien lleva la pelota: blanca si es del equipo humano, del color del rival si no.
     // - Esquinas alrededor del compañero al que iría el pase ahora mismo, o, defendiendo, del que cogerías con Q
     //   (con la tecla al lado). Su placa crece para leerla mientras apuntas.
@@ -59,11 +60,16 @@ namespace Waterpulse.UI
 
         void Start()
         {
+            var withPlate = new List<PlayerController>();
             foreach (var p in FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
-                if (p.Team == humanTeam && !p.IsGoalkeeper) fieldTeam.Add(p);
+            {
+                if (p.Team != humanTeam) continue;
+                withPlate.Add(p);
+                if (!p.IsGoalkeeper) fieldTeam.Add(p);
+            }
             fieldTeam.Sort((a, b) => string.CompareOrdinal(a.name, b.name));   // mismo orden que ControlSwitcher
 
-            foreach (var p in fieldTeam)
+            foreach (var p in withPlate)
             {
                 var plate = Instantiate(plateTemplate, plateTemplate.transform.parent);
                 plate.name = "Plate_" + p.name;

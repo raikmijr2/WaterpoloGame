@@ -6,8 +6,9 @@ using Waterpulse.Gameplay;
 
 namespace Waterpulse.UI
 {
-    // Marcador de retransmisión (nombre y goles de cada equipo, tiempo o "GOL D'OR" en el centro y un punto bajo el equipo
-    // con la posesión) y bàner con los avisos del partido. Textos visibles en catalán
+    // Marcador de retransmisión (nombre y puntos de cada equipo, que son los que deciden el partido, con sus goles en
+    // pequeño debajo; tiempo o "GOL D'OR" en el centro y un punto bajo el equipo con la posesión) y bàner con los
+    // avisos del partido. Textos visibles en catalán
     public class ScoreboardView : MonoBehaviour
     {
         [SerializeField] GameConfigSO config;
@@ -19,6 +20,11 @@ namespace Waterpulse.UI
         [SerializeField] Text clockLabel;
         [SerializeField] Text awayScoreLabel;
         [SerializeField] Text awayNameLabel;
+        [Tooltip("Goles de cada equipo, en pequeño debajo de sus puntos")]
+        [SerializeField] Text homeGoalsLabel;
+        [SerializeField] Text awayGoalsLabel;
+        [SerializeField] string goalsFormat = "{0} GOLS";
+        [SerializeField] string oneGoalText = "1 GOL";
         [Tooltip("Punto bajo el equipo que tiene la posesión")]
         [SerializeField] GameObject homePossession;
         [SerializeField] GameObject awayPossession;
@@ -54,8 +60,10 @@ namespace Waterpulse.UI
 
         void Update()
         {
-            homeScoreLabel.text = match.HomeGoals.ToString();
-            awayScoreLabel.text = match.AwayGoals.ToString();
+            homeScoreLabel.text = match.HomePoints.ToString();
+            awayScoreLabel.text = match.AwayPoints.ToString();
+            homeGoalsLabel.text = Goals(match.HomeGoals);
+            awayGoalsLabel.text = Goals(match.AwayGoals);
             clockLabel.text = match.IsGoldenGoal ? goldenGoalLabel : FormatTime(match.TimeRemaining);
         }
 
@@ -83,6 +91,8 @@ namespace Waterpulse.UI
             messageLabel.text = text;
             messagePanel.SetActive(!string.IsNullOrEmpty(text));
         }
+
+        string Goals(int goals) => goals == 1 ? oneGoalText : string.Format(goalsFormat, goals);
 
         static string FormatTime(float seconds)
         {

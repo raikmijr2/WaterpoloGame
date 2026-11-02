@@ -6,7 +6,8 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.UI
 {
     // Barra de tiro vertical al lado del jugador del humano mientras carga el tiro: se llena de abajo arriba
-    // y la zona verde marca dónde hay que volver a pulsar K
+    // y la zona verde marca dónde hay que volver a pulsar K. El punto de mira se ve en la portería, donde irá el tiro
+    // (se mueve con arriba/abajo mientras carga)
     public class ShotMeterView : MonoBehaviour
     {
         [SerializeField] BallController ball;
@@ -15,6 +16,8 @@ namespace Waterpulse.UI
         [SerializeField] RectTransform bar;
         [SerializeField] RectTransform greenZone;
         [SerializeField] RectTransform fill;
+        [Tooltip("Punto de mira sobre la portería rival")]
+        [SerializeField] RectTransform reticle;
         [Tooltip("Punto del jugador sobre el que se coloca la barra (m por encima del agua)")]
         [SerializeField] float worldHeight = 1f;
         [Tooltip("Separación de la barra respecto al jugador en pantalla (px de referencia)")]
@@ -29,6 +32,7 @@ namespace Waterpulse.UI
             var holder = ball.Holder;
             bool show = holder != null && holder.Team == humanTeam && holder.IsChargingShot;
             if (bar.gameObject.activeSelf != show) bar.gameObject.SetActive(show);
+            if (reticle.gameObject.activeSelf != show) reticle.gameObject.SetActive(show);
             if (!show) return;
 
             var meter = holder.ShotMeter;
@@ -39,6 +43,9 @@ namespace Waterpulse.UI
             float scale = canvas != null ? canvas.scaleFactor : 1f;
             Vector3 screen = viewCamera.WorldToScreenPoint(holder.Position + Vector3.up * worldHeight);
             bar.position = screen + (Vector3)(screenOffset * scale);
+            Vector3 target = viewCamera.WorldToScreenPoint(ball.ShotTargetPoint(holder, holder.ShotAim));
+            target.z = 0f;
+            reticle.position = target;
         }
     }
 }

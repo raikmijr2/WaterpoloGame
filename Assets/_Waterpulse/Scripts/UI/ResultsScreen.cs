@@ -47,6 +47,9 @@ namespace Waterpulse.UI
         [Header("Textos")]
         [SerializeField] string winsFormat = "Guanya {0}!";
         [SerializeField] string drawText = "Empat";
+        [Tooltip("Tamaño de letra de la línea de los goles, debajo de los puntos")]
+        [SerializeField] int goalsLineSize = 40;
+        [SerializeField] string goalsWord = "gols";
         [SerializeField] string mvpTag = " · MVP";
         [SerializeField] string totalText = "Total";
         [SerializeField] string abilitiesFormat = "Habilitats amb èxit: {0} de {1}";
@@ -105,7 +108,9 @@ namespace Waterpulse.UI
         {
             if (state != MatchState.Results) return;
 
-            scoreLabel.text = $"{config.homeTeamName}  {match.HomeGoals} - {match.AwayGoals}  {config.awayTeamName}";
+            // Puntos (deciden el partido) y, debajo, los goles
+            scoreLabel.text = $"{config.homeTeamName}  {match.HomePoints} - {match.AwayPoints}  {config.awayTeamName}\n" +
+                              $"<size={goalsLineSize}>{match.HomeGoals} - {match.AwayGoals} {goalsWord}</size>";
             string winner = match.Winner == TeamSide.Home ? config.homeTeamName : config.awayTeamName;
             winnerLabel.text = match.IsDraw ? drawText : string.Format(winsFormat, winner);
 

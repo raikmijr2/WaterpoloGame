@@ -6,18 +6,27 @@ using Waterpulse.Logic;
 namespace Waterpulse.Gameplay
 {
     // Portero (IA): sigue la pelota delante de su portería, reacciona a los tiros, intenta pararlos
-    // por probabilidad y, si se queda la pelota, saca en corto a un compañero libre
+    // por probabilidad y, si se queda la pelota, saca en corto a un compañero libre.
+    // Con el muro de agua levantado para todos los tiros (también si lo controla el humano: la parada no depende del cerebro).
+    // El portero rival levanta el muro solo cuando le tiran y tiene la energía llena (useWall)
     [RequireComponent(typeof(PlayerController))]
     public class GoalkeeperController : MonoBehaviour, IPlayerBrain
     {
         [SerializeField] GameConfigSO config;
         [SerializeField] BallController ball;
         [SerializeField] PoolBounds pool;
+        [Tooltip("Muro de agua de su portería")]
+        [SerializeField] WaterWall wall;
+        [Tooltip("La IA levanta el muro cuando le tiran (el portero rival; el del humano lo levanta él con L)")]
+        [SerializeField] bool useWall;
+        [Tooltip("Niveles de dificultad (Fàcil, Difícil): el muro solo si el nivel elegido usa habilidades")]
+        [SerializeField] DifficultySO[] levels;
 
         // Magnitud mínima del stick para que PlayerController la tome como dirección de pase
         const float PassAimMagnitude = 0.25f;
 
         PlayerController self;
+        PlayerEnergy energy;
         PlayerController[] players;
         float holdTimer;
         int rolledFlightId = -1;
@@ -28,13 +37,29 @@ namespace Waterpulse.Gameplay
         Vector3 HomePosition => OwnGoalCenter + Vector3.right * (Inward * config.goalkeeperDepth);
         float LateralLimit => config.goalWidth * 0.5f + config.goalkeeperLateralExtra;
 
-        void Awake() => self = GetComponent<PlayerController>();
+        void Awake()
+        {
+            self = GetComponent<PlayerController>();
+            energy = GetComponent<PlayerEnergy>();
+        }
 
         void Start() => players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
 
-        void FixedUpdate() => TrySave();
+        void FixedUpdate()
+        {
+            TryWallBlock();
+            TrySave();
+        }
 
         public PlayerIntent GetIntent()
+        {
+            var intent = Decide();
+            if (useWall && UsesAbilities() && IsShotAtMyGoal() && !wall.IsUp && self.Wall != null && energy != null && energy.CanSpend(self.Wall.cost))
+                intent.Ability = true;
+            return intent;
+        }
+
+        PlayerIntent Decide()
         {
             if (self.HasBall) return Distribute();
             holdTimer = 0f;
@@ -97,6 +122,19 @@ namespace Waterpulse.Gameplay
                 if (Flat(p.Position - mate.Position).magnitude < config.goalkeeperOutletFreeDistance) return false;
             }
             return true;
+        }
+
+        bool UsesAbilities() => levels == null || levels.Length == 0
+                                || levels[Mathf.Clamp(PlayerSession.DifficultyIndex, 0, levels.Length - 1)].useAbilities;
+
+        // Muro levantado: cualquier tiro que llega al muro se para, se lo queda el portero
+        void TryWallBlock()
+        {
+            if (wall == null || !wall.IsUp || !IsShotAtMyGoal()) return;
+            float ahead = (ball.Position.x - wall.Position.x) * Inward;   // > 0 mientras la pelota aún no ha llegado al muro
+            if (ahead > config.ballRadius) return;
+            rolledFlightId = ball.FlightId;
+            if (ball.CatchByGoalkeeper(self)) GameEvents.RaiseSave(gameObject);
         }
 
         // Una tirada por tiro, cuando la pelota llega a su altura

@@ -13,7 +13,8 @@ namespace Waterpulse.AI
     {
         [SerializeField] TeamSide team;
         [SerializeField] BallController ball;
-        [SerializeField] DifficultySO difficulty;
+        [Tooltip("Niveles de dificultad en el orden del menú (Fàcil, Difícil): se usa el que se eligió (PlayerSession)")]
+        [SerializeField] DifficultySO[] levels;
         [Tooltip("Agresivo = rival con IA completa. Pasivo = compañeros del humano: solo marcajes")]
         [SerializeField] bool aggressive = true;
 
@@ -27,7 +28,7 @@ namespace Waterpulse.AI
 
         public TeamSide Team => team;
         public bool IsAggressive => aggressive;
-        public DifficultySO Difficulty => difficulty;
+        public DifficultySO Difficulty => levels[Mathf.Clamp(PlayerSession.DifficultyIndex, 0, levels.Length - 1)];
         public PlayerController Chaser { get; private set; }
         public PlayerController Presser { get; private set; }
         public PlayerController Interceptor { get; private set; }
@@ -51,7 +52,7 @@ namespace Waterpulse.AI
         {
             timer -= Time.deltaTime;
             if (timer > 0f) return;
-            timer = difficulty.reactionTime;
+            timer = Difficulty.reactionTime;
             Assign();
         }
 

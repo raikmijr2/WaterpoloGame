@@ -7,12 +7,14 @@ using Waterpulse.Core;
 namespace Waterpulse.Gameplay
 {
     // Conecta la MatchStateMachine con la escena: recoloca en cada saque, congela la pelota tras gol
-    // y al final, y avisa a los demás sistemas con GameEvents.MatchStateChanged
+    // y al final, y avisa a los demás sistemas con GameEvents.MatchStateChanged.
+    // Los goles le llegan de MatchScoring con lo que vale cada uno: gana quien suma más puntos de gol
     public class MatchFlow : MonoBehaviour
     {
         [SerializeField] GameConfigSO config;
         [SerializeField] BallController ball;
         [SerializeField] PoolBounds pool;
+        [SerializeField] MatchScoring scoring;
 
         MatchStateMachine machine;
         PlayerController[] players;
@@ -22,6 +24,8 @@ namespace Waterpulse.Gameplay
         public bool IsGoldenGoal => machine.IsGoldenGoal;
         public int HomeGoals => machine.HomeGoals;
         public int AwayGoals => machine.AwayGoals;
+        public int HomePoints => machine.HomePoints;
+        public int AwayPoints => machine.AwayPoints;
         public bool IsDraw => machine.IsDraw;
         public TeamSide Winner => machine.Winner;
 
@@ -44,8 +48,8 @@ namespace Waterpulse.Gameplay
             };
         }
 
-        void OnEnable() => GameEvents.Goal += OnGoal;
-        void OnDisable() => GameEvents.Goal -= OnGoal;
+        void OnEnable() => scoring.GoalScored += OnGoal;
+        void OnDisable() => scoring.GoalScored -= OnGoal;
 
         void Start()
         {
@@ -58,9 +62,9 @@ namespace Waterpulse.Gameplay
         // Vuelve a empezar el partido desde cero
         public void Restart() => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
 
-        void OnGoal(TeamSide scoringTeam, GameObject scorer)
+        void OnGoal(TeamSide scoringTeam, int points)
         {
-            if (machine.RegisterGoal(scoringTeam)) ball.Freeze();
+            if (machine.RegisterGoal(scoringTeam, points)) ball.Freeze();
         }
 
         void OnStateChanged(MatchState state)

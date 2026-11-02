@@ -43,10 +43,11 @@ namespace Waterpulse.Gameplay
             GameEvents.RaisePauseChanged(false);
         }
 
-        // Al cambiar de escena desde la pausa (reiniciar o volver al menú) el tiempo vuelve a correr
+        // Al cambiar de escena desde la pausa (reiniciar o volver al menú) el tiempo vuelve a correr normal
+        // (no al de antes de pausar: podía ser la cámara lenta del tiro)
         void OnDestroy()
         {
-            if (IsPaused) Time.timeScale = scaleBeforePause;
+            if (IsPaused) Time.timeScale = 1f;
         }
     }
 }

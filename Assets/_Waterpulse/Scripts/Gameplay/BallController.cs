@@ -128,30 +128,37 @@ namespace Waterpulse.Gameplay
             return index >= 0 ? candidates[index] : null;
         }
 
-        public bool Shoot(PlayerController from, Vector2 stick) => Shoot(from, stick, 1f, config.saveReach, false);
+        public bool Shoot(PlayerController from, Vector2 stick) => Shoot(from, StickAim(stick), 1f, config.saveReach, false, 0f);
 
-        // Tiro normal soltado desde la barra de tiro: con calidad 1 (verde) es el tiro de siempre; con menos,
-        // sale más flojo y desviado hacia un lado al azar (puede irse fuera)
-        public bool Shoot(PlayerController from, Vector2 stick, float quality)
+        // Tiro normal soltado desde la barra de tiro, al punto de mira (aim: -1 un palo, 0 centro, 1 el otro): con
+        // calidad 1 (verde) es el tiro de siempre; con menos, sale más flojo y desviado hacia un lado al azar (puede irse fuera)
+        public bool ShootAt(PlayerController from, float aim, float quality)
         {
             float power = ShotMeter.PowerFactor(quality, config.shotMinPowerFactor);
             float error = ShotMeter.ErrorAngle(quality, config.shotMaxErrorAngle) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
-            return Shoot(from, stick, power, config.saveReach, false, error);
+            return Shoot(from, aim, power, config.saveReach, false, error);
         }
 
         // Tiro con parámetros propios (lo usa el Xut del Tràngol): más rápido y con menos alcance de parada
         public bool Shoot(PlayerController from, Vector2 stick, float speedMultiplier, float saveReach, bool special)
-            => Shoot(from, stick, speedMultiplier, saveReach, special, 0f);
+            => Shoot(from, StickAim(stick), speedMultiplier, saveReach, special, 0f);
 
-        bool Shoot(PlayerController from, Vector2 stick, float speedMultiplier, float saveReach, bool special, float errorAngle)
+        // Sin stick al centro; con stick arriba/abajo hacia ese palo. Cuenta la dirección, no la inclinación
+        // (nadar lento o inclinar poco el joystick no debe cambiar la puntería)
+        static float StickAim(Vector2 stick) => stick.sqrMagnitude > 0.0001f ? stick.normalized.y : 0f;
+
+        // Punto de la portería rival al que va un tiro con esa puntería (-1 a 1). Lo usa también el punto de mira del HUD
+        public Vector3 ShotTargetPoint(PlayerController from, float aim)
+        {
+            float lateral = Mathf.Clamp(aim, -1f, 1f) * (config.goalWidth * 0.5f - config.shotPostMargin);
+            return pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
+        }
+
+        bool Shoot(PlayerController from, float aim, float speedMultiplier, float saveReach, bool special, float errorAngle)
         {
             if (Holder != from || IsFrozen) return false;
 
-            // Sin stick al centro; con stick arriba/abajo hacia ese palo. Cuenta la dirección, no la inclinación
-            // (nadar lento o inclinar poco el joystick no debe cambiar la puntería)
-            Vector2 aim = stick.sqrMagnitude > 0.0001f ? stick.normalized : Vector2.zero;
-            float lateral = aim.y * (config.goalWidth * 0.5f - config.shotPostMargin);
-            Vector3 point = pool.AttackedGoalCenter(from.Team) + Vector3.forward * lateral;
+            Vector3 point = ShotTargetPoint(from, aim);
             // Desvío: desplaza el punto de llegada en lateral lo que corresponde al ángulo a esa distancia
             float distance = FlatDistance(body.position, point);
             point += Vector3.forward * (Mathf.Tan(errorAngle * Mathf.Deg2Rad) * distance);

@@ -12,7 +12,7 @@ namespace Waterpulse.UI
     // se va directo al menú principal con el mismo usuario. Las acciones de usuarios (entrar, crear, borrar) las hace UsersMenu
     public class MenuFlow : MonoBehaviour
     {
-        public enum Page { Intro, Users, NewUser, ConfirmDeleteUser, Main, Ranking, Options, Controls, ConfirmReset }
+        public enum Page { Intro, Users, NewUser, ConfirmDeleteUser, Main, Ranking, Options, Controls, ConfirmReset, Difficulty }
 
         [SerializeField] MenuConfigSO config;
         [SerializeField] IntroScreen intro;
@@ -31,6 +31,7 @@ namespace Waterpulse.UI
         [SerializeField] CanvasGroup optionsPage;
         [SerializeField] CanvasGroup controlsPage;
         [SerializeField] CanvasGroup confirmResetPage;
+        [SerializeField] CanvasGroup difficultyPage;
 
         [Header("Qui juga? y Nou usuari")]
         [SerializeField] Button newUserButton;
@@ -46,6 +47,11 @@ namespace Waterpulse.UI
         [SerializeField] Button optionsButton;
         [SerializeField] Button changeUserButton;
         [SerializeField] Button rankingBackButton;
+
+        [Header("Tria la dificultat (Partit individual)")]
+        [Tooltip("Un botón por nivel, en el orden de PlayerSession.DifficultyIndex (Fàcil, Difícil)")]
+        [SerializeField] Button[] difficultyButtons;
+        [SerializeField] Button difficultyBackButton;
 
         [Header("Opciones")]
         [Tooltip("Lo que se selecciona al abrir las opciones")]
@@ -74,7 +80,7 @@ namespace Waterpulse.UI
             back.AddBinding("<Gamepad>/buttonEast");
 
             pages = new PageSwitcher(new[] { introPage, usersPage, newUserPage, confirmDeleteUserPage, mainPage, rankingPage,
-                                             optionsPage, controlsPage, confirmResetPage }, config.pageFadeDuration, config.inputGuard);
+                                             optionsPage, controlsPage, confirmResetPage, difficultyPage }, config.pageFadeDuration, config.inputGuard);
 
             intro.Finished += () => Show(Page.Users);
             users.SignedIn += () => Show(Page.Main);
@@ -86,7 +92,13 @@ namespace Waterpulse.UI
             usersBackButton.onClick.AddListener(Back);
             newUserBackButton.onClick.AddListener(Back);
             confirmDeleteNoButton.onClick.AddListener(Back);
-            singlePlayerButton.onClick.AddListener(StartSinglePlayer);
+            singlePlayerButton.onClick.AddListener(() => Show(Page.Difficulty));
+            for (int i = 0; i < difficultyButtons.Length; i++)
+            {
+                int level = i;
+                difficultyButtons[i].onClick.AddListener(() => StartSinglePlayer(level));
+            }
+            difficultyBackButton.onClick.AddListener(Back);
             rankingButton.onClick.AddListener(() => Show(Page.Ranking));
             optionsButton.onClick.AddListener(() => Show(Page.Options));
             changeUserButton.onClick.AddListener(() => Show(Page.Users));
@@ -153,10 +165,16 @@ namespace Waterpulse.UI
                 case Page.Options: Show(Page.Main, optionsButton); break;
                 case Page.Controls: Show(Page.Options, controlsButton); break;
                 case Page.ConfirmReset: Show(Page.Options, resetRecordButton); break;
+                case Page.Difficulty: Show(Page.Main, singlePlayerButton); break;
             }
         }
 
-        void StartSinglePlayer() => SceneManager.LoadScene(config.matchScene);
+        // Partido individual con el nivel elegido (lo leen la IA, el portero rival y la guía de controles)
+        void StartSinglePlayer(int level)
+        {
+            PlayerSession.DifficultyIndex = level;
+            SceneManager.LoadScene(config.matchScene);
+        }
 
         CanvasGroup PageGroup(Page page)
         {
@@ -170,6 +188,7 @@ namespace Waterpulse.UI
                 case Page.Ranking: return rankingPage;
                 case Page.Options: return optionsPage;
                 case Page.Controls: return controlsPage;
+                case Page.Difficulty: return difficultyPage;
                 default: return confirmResetPage;
             }
         }
@@ -186,6 +205,7 @@ namespace Waterpulse.UI
                 case Page.Options: return new[] { optionsFirst };
                 case Page.Controls: return new Selectable[] { controlsBackButton };
                 case Page.ConfirmReset: return new Selectable[] { confirmResetNoButton };
+                case Page.Difficulty: return difficultyButtons;
                 default: return new Selectable[0];
             }
         }

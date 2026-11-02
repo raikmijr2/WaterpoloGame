@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace Waterpulse.Config
 {
-    // Nivel de dificultad de la IA rival (GDD sección 9). Ajusta velocidad y agresividad, nunca hace trampas
+    // Nivel de dificultad de la IA rival (GDD sección 9). Ajusta velocidad y agresividad, nunca hace trampas.
+    // Hay dos (decidido): Fàcil (con la guía de controles) y Difícil; se elige en el menú antes del partido
     [CreateAssetMenu(menuName = "Waterpulse/Difficulty", fileName = "Difficulty")]
     public class DifficultySO : ScriptableObject
     {
@@ -20,5 +21,7 @@ namespace Waterpulse.Config
         [Range(0f, 1f)] public float shotGreenChance = 0.5f;
         [Tooltip("Cuando falla el verde, lo antes que suelta el tiro (0-1 de la barra); suelta entre esto y el verde")]
         [Range(0f, 1f)] public float shotMissMinFill = 0.5f;
+        [Tooltip("Sale la guía de controles abajo (las teclas que sirven en cada momento)")]
+        public bool showControlHints;
     }
 }

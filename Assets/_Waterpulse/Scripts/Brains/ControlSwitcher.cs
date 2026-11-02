@@ -10,6 +10,8 @@ namespace Waterpulse.Brains
     // Control estilo FIFA: el HumanBrain pasa al jugador de campo del equipo humano que recibe la pelota.
     // Al defender, salta al jugador más cercano a la pelota (con margen y espera para no cambiar constantemente).
     // Con Q (LT en el mando) se cambia a mano al más cercano a la pelota; si ya eres tú, al siguiente.
+    // Con E (RT en el mando) se coge al portero en cualquier momento (también con la cámara lenta de un tiro rival);
+    // otra E vuelve al jugador de campo más cercano a la pelota. Mientras llevas al portero no hay cambio automático.
     // Tras un cambio manual el automático espera un poco para no deshacerlo
     public class ControlSwitcher : MonoBehaviour
     {
@@ -26,6 +28,8 @@ namespace Waterpulse.Brains
         float manualLockTimer;
         bool paused;   // en la pausa no se cambia de jugador
         InputAction switchAction;
+        InputAction keeperAction;
+        PlayerController goalkeeper;
 
         public PlayerController Controlled { get; private set; }
 
@@ -34,6 +38,9 @@ namespace Waterpulse.Brains
             switchAction = new InputAction("SwitchPlayer", InputActionType.Button);
             switchAction.AddBinding("<Keyboard>/q");
             switchAction.AddBinding("<Gamepad>/leftTrigger");
+            keeperAction = new InputAction("SwitchToKeeper", InputActionType.Button);
+            keeperAction.AddBinding("<Keyboard>/e");
+            keeperAction.AddBinding("<Gamepad>/rightTrigger");
         }
 
         void OnEnable()
@@ -41,6 +48,7 @@ namespace Waterpulse.Brains
             ball.HolderChanged += OnHolderChanged;
             GameEvents.PauseChanged += OnPauseChanged;
             switchAction.Enable();
+            keeperAction.Enable();
         }
 
         void OnDisable()
@@ -48,16 +56,25 @@ namespace Waterpulse.Brains
             ball.HolderChanged -= OnHolderChanged;
             GameEvents.PauseChanged -= OnPauseChanged;
             switchAction.Disable();
+            keeperAction.Disable();
         }
 
         void OnPauseChanged(bool isPaused) => paused = isPaused;
 
-        void OnDestroy() => switchAction.Dispose();
+        void OnDestroy()
+        {
+            switchAction.Dispose();
+            keeperAction.Dispose();
+        }
 
         void Start()
         {
             foreach (var p in FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
-                if (p.Team == humanTeam && !p.IsGoalkeeper) team.Add(p);
+            {
+                if (p.Team != humanTeam) continue;
+                if (p.IsGoalkeeper) goalkeeper = p;
+                else team.Add(p);
+            }
             team.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
             if (team.Count > 0) SwitchTo(NearestToBall(null));
         }
@@ -70,8 +87,22 @@ namespace Waterpulse.Brains
             if (manualLockTimer > 0f) manualLockTimer -= dt;
             if (Controlled == null) return;
 
+            // Portero: E lo coge o lo deja (vuelve al de campo más cercano a la pelota). Con la pelota no se cambia
+            bool keeperPressed = keeperAction.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Keeper);
+            bool switchPressed = switchAction.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Switch);
+            if (keeperPressed && goalkeeper != null && !Controlled.HasBall)
+            {
+                var next = Controlled == goalkeeper ? NearestToBall(null) : goalkeeper;
+                if (next != null)
+                {
+                    SwitchTo(next);
+                    manualLockTimer = config.manualSwitchLock;
+                }
+                return;
+            }
+
             // Cambio manual: no con la pelota (se quedaría en manos de la IA)
-            if (switchAction.WasPressedThisFrame() && !Controlled.HasBall)
+            if (switchPressed && !Controlled.HasBall)
             {
                 var next = NearestToBall(Controlled);
                 if (next != null)
@@ -82,8 +113,8 @@ namespace Waterpulse.Brains
                 return;
             }
 
-            // Cambio automático al defender
-            if (switchCooldown > 0f || manualLockTimer > 0f || !IsDefending()) return;
+            // Cambio automático al defender (no si llevas al portero: lo dejas tú con E o Q)
+            if (switchCooldown > 0f || manualLockTimer > 0f || Controlled.IsGoalkeeper || !IsDefending()) return;
             var nearest = NearestToBall(null);
             if (nearest == null || nearest == Controlled) return;
             float current = Vector3.Distance(Controlled.Position, ball.Position);

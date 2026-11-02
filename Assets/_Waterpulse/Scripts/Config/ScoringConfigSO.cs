@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Waterpulse.Config
 {
-    // Puntos por jugador (GDD sección 8) y reglas del combo. Los puntos nunca deciden el resultado
+    // Puntos por jugador (GDD sección 8), multiplicador de posesión y contraataque. Los puntos nunca deciden el resultado
     [CreateAssetMenu(menuName = "Waterpulse/Scoring Config", fileName = "ScoringConfig")]
     public class ScoringConfigSO : ScriptableObject
     {
@@ -10,9 +10,6 @@ namespace Waterpulse.Config
         public int goalPoints = 100;
         [Tooltip("Extra por marcar con el Xut del Tràngol")]
         public int abilityGoalBonus = 50;
-        [Tooltip("Extra al que marca tras esta cantidad de pases seguidos de su equipo")]
-        public int comboPassesRequired = 3;
-        public int comboPassesBonus = 30;
         public int savePoints = 25;
         [Tooltip("Por interceptar un pase rival")]
         public int interceptionPoints = 20;
@@ -21,11 +18,24 @@ namespace Waterpulse.Config
         [Tooltip("Por pase completado")]
         public int passPoints = 10;
 
-        [Header("Multiplicador de combo")]
-        [Tooltip("Cuánto sube el multiplicador por cada acción positiva encadenada")]
-        public float comboStep = 0.1f;
-        [Tooltip("Multiplicador máximo")]
-        public float comboMax = 2f;
+        [Header("Multiplicador de posesión (solo multiplica el gol; vuelve a ×1 al perder la pelota)")]
+        [Tooltip("Lo que sube por cada pase completado")]
+        public float passMultiplier = 0.1f;
+        [Tooltip("Lo que sube al recuperar la pelota (intercepción o robo con J)")]
+        public float recoveryMultiplier = 0.2f;
+        [Tooltip("Multiplicador máximo (decidido: ×3)")]
+        public float multiplierMax = 3f;
+        [Tooltip("Primera racha: pases seguidos y lo que sube además")]
+        public int shortStreak = 3;
+        public float shortStreakBonus = 0.2f;
+        [Tooltip("Segunda racha: pases seguidos y lo que sube además")]
+        public int longStreak = 5;
+        public float longStreakBonus = 0.3f;
+
+        [Header("Contraataque (decidido)")]
+        [Tooltip("Marcar antes de este tiempo desde que se recupera la pelota (o desde la parada) da el extra (s)")]
+        public float counterAttackWindow = 5f;
+        public int counterAttackBonus = 50;
 
         [Header("Habilidades con éxito")]
         [Tooltip("Torpede Blau: tiempo extra tras el acelerón para considerarlo un éxito (s)")]

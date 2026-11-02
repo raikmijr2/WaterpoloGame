@@ -6,8 +6,8 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.UI
 {
     // Panel del jugador que controla el humano (abajo a la izquierda), como una ficha de retransmisión: rol abreviado en
-    // grande, nombre del rol, energía (barra con una marca en el coste del Xut del Tràngol y la cifra) y estamina en una línea
-    // fina. Con energía para el Xut, la barra se resalta un poco (EnergyHighlight). Las barras se mueven suavemente
+    // grande, nombre del rol, energía (barra con una marca en el coste de la habilidad especial y la cifra) y estamina en una línea
+    // fina. Con energía para la habilidad especial, la barra se resalta un poco (EnergyHighlight). Las barras se mueven suavemente
     // hacia su valor. Si pide la habilidad sin energía, el carril de la barra parpadea en rojo. Sustituye al texto "Energia: N"
     public class PlayerHudView : MonoBehaviour
     {
@@ -21,7 +21,7 @@ namespace Waterpulse.UI
         [SerializeField] Image energyTrack;
         [Tooltip("Cifra de la energía")]
         [SerializeField] Text energyValueLabel;
-        [Tooltip("Marca en el coste del Xut del Tràngol")]
+        [Tooltip("Marca en el coste de la habilidad especial (Xut o muro)")]
         [SerializeField] RectTransform abilityCostMark;
         [SerializeField] EnergyHighlight energyHighlight;
         [SerializeField] Color noEnergyColor = new Color(0.9f, 0.2f, 0.22f);
@@ -78,7 +78,7 @@ namespace Waterpulse.UI
             roleLabel.text = (role >= 0 && role < roleNames.Length ? roleNames[role] : player.Role.ToString()).ToUpperInvariant();
             roleShortLabel.text = role >= 0 && role < roleShortNames.Length ? roleShortNames[role] : string.Empty;
 
-            var ability = player.PowerShot;
+            var ability = player.SpecialAbility;
             bool hasAbility = ability != null && energy != null && energy.Max > 0f;
             abilityCostMark.gameObject.SetActive(hasAbility);
             if (hasAbility)
@@ -107,7 +107,7 @@ namespace Waterpulse.UI
             Apply();
         }
 
-        bool IsReady() => player.PowerShot != null && energy != null && energy.CanSpend(player.PowerShot.cost);
+        bool IsReady() => player.SpecialAbility != null && energy != null && energy.CanSpend(player.SpecialAbility.cost);
 
         void Apply()
         {

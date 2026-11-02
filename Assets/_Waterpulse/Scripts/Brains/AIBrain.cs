@@ -104,9 +104,10 @@ namespace Waterpulse.Brains
             if (teamAI != null && teamAI.TryGetMark(self, out var rival))
             {
                 var mark = RolePositioning.MarkPosition(rival.Position, self.Team, Pitch(), config);
-                return Go(State.Mark, mark);
+                return WithDash(Go(State.Mark, mark));
             }
-            return Go(State.Position, FormationTarget());
+            // Los compañeros del humano también hacen dash para llegar a su sitio si está lejos (decidido por el usuario)
+            return WithDash(Go(State.Position, FormationTarget()));
         }
 
         // ---------- Con pelota ----------
@@ -188,11 +189,11 @@ namespace Waterpulse.Brains
             return WithDash(intent);
         }
 
-        // Dash de la IA rival si su objetivo está lejos, tiene estamina y va lo bastante lenta para que se note
+        // Dash de la IA (rivales y compañeros) si su objetivo está lejos y tiene estamina
         PlayerIntent WithDash(PlayerIntent intent)
         {
             var stamina = self.Stamina;
-            if (stamina == null || self.IsBoosting || !stamina.CanDash || self.DashStrength < config.dashMinStrength) return intent;
+            if (stamina == null || self.IsBoosting || !stamina.CanDash) return intent;
             if (Flat(Target - self.Position).magnitude > config.aiDashDistance) intent.Dash = true;
             return intent;
         }

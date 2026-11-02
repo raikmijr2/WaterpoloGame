@@ -28,10 +28,13 @@ namespace Waterpulse.EditorTools
         public const string RootDir = "Assets/_Waterpulse";
         public const string ScenePath = RootDir + "/Scenes/Match.unity";
         public const string ConfigPath = RootDir + "/Config/GameConfig.asset";
-        public const string DifficultyPath = RootDir + "/Config/Difficulty_Competidor.asset";
+        public const string EasyDifficultyPath = RootDir + "/Config/Difficulty_Facil.asset";
+        public const string HardDifficultyPath = RootDir + "/Config/Difficulty_Dificil.asset";
         public const string EnergyConfigPath = RootDir + "/Config/EnergyConfig.asset";
         public const string XutTragolPath = RootDir + "/Config/Ability_XutTragol.asset";
         public const string TorpedeBlauPath = RootDir + "/Config/Ability_TorpedeBlau.asset";
+        public const string MurAiguaPath = RootDir + "/Config/Ability_MurAigua.asset";
+        public const string KeeperEnergyConfigPath = RootDir + "/Config/EnergyConfig_Porter.asset";
         public const string ScoringConfigPath = RootDir + "/Config/ScoringConfig.asset";
         public const string UsersConfigPath = RootDir + "/Config/UsersConfig.asset";
         public const string DefaultPlayerModelPath = RootDir + "/Prefabs/Waterpolo_TreadingWater.prefab";
@@ -40,6 +43,13 @@ namespace Waterpulse.EditorTools
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
         const float WallThickness = 0.5f;
+        const float StandsClearance = 0.7f;   // de la pared del agua a la primera fila de las gradas (m)
+        const float StandsBaseHeight = 0.6f;  // altura de la primera fila (el equipo tenía 1 m: se veían algo altas)
+        // Superficie del agua: cuadros de la malla (30×20 m → 0,2 m) para que se vean las onadas
+        const int WaterGridX = 150;
+        const int WaterGridZ = 100;
+        const float WaterBoundsHeight = 1f;
+        const string WaterMeshPath = RootDir + "/Art/Meshes/WaterGrid.asset";
         const float WallTopAboveWater = 0.3f;
         const float WallDepth = 1.5f;
         const float PoolDepth = 2f;
@@ -64,6 +74,48 @@ namespace Waterpulse.EditorTools
         const float BracketsSize = 150f;        // lado del cuadrado que forman las cuatro esquinas
         const float BracketCornerSize = 26f;
         const float SwitchKeySize = 34f;
+        // Marcador: puntos de cada equipo en grande y sus goles en pequeño debajo
+        const int ScorePointsFont = 52;
+        const int ScoreGoalsFont = 18;
+        const float ScorePointsY = 8f;
+        const float ScoreGoalsY = -28f;
+        static readonly Vector2 ScoreCellSize = new Vector2(120f, 56f);
+        const float ReticleSize = 84f;          // punto de mira del tiro sobre la portería
+        // Multiplicador (debajo del marcador) y avisos de puntos (a la derecha, encima de los botones táctiles)
+        static readonly Vector2 MultiplierSize = new Vector2(380f, 44f);
+        const float MultiplierTop = -140f;
+        static readonly Vector2 FeedAnchor = new Vector2(1f, 0.66f);
+        static readonly Vector2 FeedLineSize = new Vector2(640f, 42f);
+        const int FeedLines = 4;
+        const float FeedMargin = 40f;          // con el borde derecho de la pantalla
+        // Guía de controles: franja abajo en el centro, a la derecha del panel del jugador
+        static readonly Vector2 HintsSize = new Vector2(900f, 48f);
+        const float HintsBottom = 40f;
+        const float HintsOffsetX = 80f;         // un poco a la derecha del centro: el panel del jugador llega a x = 560
+        // Controles táctiles (px de referencia, 1920×1080): joystick en la mitad izquierda, botones en arco abajo a la derecha
+        const float TouchJoystickZoneWidth = 0.5f;   // fracción de la pantalla donde se puede poner el joystick
+        const float TouchStickSize = 260f;
+        const float TouchKnobSize = 120f;
+        const float TouchStickRange = 110f;          // lo que se puede arrastrar el mando desde el centro (px)
+        const float TouchBigSize = 170f;
+        const float TouchSmallSize = 110f;
+        static readonly Vector2 TouchFirstPosition = new Vector2(-400f, 140f);
+        static readonly Vector2 TouchSecondPosition = new Vector2(-170f, 200f);
+        static readonly Vector2 TouchThirdPosition = new Vector2(-260f, 420f);
+        static readonly Vector2 TouchDashPosition = new Vector2(-470f, 380f);
+        static readonly Color TouchButtonColor = new Color(1f, 1f, 1f, 0.22f);   // blancos translúcidos, sin colores
+        static readonly Color TouchGlyphColor = new Color(1f, 1f, 1f, 0.45f);
+        // Sprites del pack Mobile Controls de Kenney (CC0), copiados a Art/UI/Mobile
+        const string MobileSpriteDir = RootDir + "/Art/UI/Mobile";
+        const string MobileButtonSprite = "button";
+        const string MobileStickBaseSprite = "joystick_base";
+        const string MobileKnobSprite = "joystick_knob";
+        // Mur d'Aigua: cortina de agua delante de la portería (solo aspecto; para los tiros al llegar a su x)
+        const float WaterWallInset = 0.6f;      // distancia de la línea de gol hacia el campo (m)
+        const float WaterWallHeight = 1.8f;
+        const float WaterWallSink = 0.3f;       // parte de la cortina bajo el agua
+        const float WaterWallThickness = 0.12f;
+        const float WaterWallOverhang = 0.6f;   // lo que sobresale de la boca de la portería, en total
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
 
         // Efectos visuales de las habilidades (solo aspecto, no afectan a la jugabilidad)
@@ -71,14 +123,25 @@ namespace Waterpulse.EditorTools
         const float BallTrailWidth = 0.3f;
         const float PlayerTrailTime = 0.5f;
         const float PlayerTrailWidth = 0.7f;
-        const float SplashDuration = 0.5f;
-        const float SplashLifetime = 0.6f;
-        const float SplashSpeed = 3f;
-        const float SplashSize = 0.15f;
-        const float SplashGravity = 0.6f;
-        const float SplashConeAngle = 35f;
-        const float SplashRadius = 0.3f;
-        const short SplashParticles = 30;
+        const float FxBurstDuration = 0.5f;
+        const int FxSortingOrder = 5;          // duración de una ráfaga (las partículas viven lo suyo)
+        static readonly Color DropColor = new Color(0.75f, 0.9f, 1f, 0.9f);     // gotas
+        static readonly Color FoamColor = new Color(1f, 1f, 1f, 0.55f);         // espuma sobre el agua
+
+        // Recetas de las partículas de agua (solo aspecto). El cono emite hacia su +Z local:
+        // giro X -90 = hacia arriba; Y 180 = hacia atrás del jugador
+        static readonly Fx AbilitySplash = new Fx { Name = "AbilitySplash", Burst = 30, Lifetime = 0.6f, Speed = 3f, Size = 0.15f, Gravity = 0.6f, Angle = 35f, Radius = 0.3f };
+        static readonly Fx PowerShotColumn = new Fx { Name = "PowerShotColumn", Burst = 60, Lifetime = 0.9f, Speed = 6.5f, Size = 0.22f, Gravity = 1.3f, Angle = 10f, Radius = 0.25f };
+        static readonly Fx Wake = new Fx { Name = "Wake", Continuous = true, Offset = new Vector3(0f, 0.02f, -0.5f), Lifetime = 1.1f, Speed = 0.15f, Size = 0.35f,
+                                           Angle = 60f, Radius = 0.3f, Color = FoamColor, OnSurface = true, Grow = true };
+        static readonly Fx DashSpray = new Fx { Name = "DashSpray", Rotation = new Vector3(-35f, 180f, 0f), Burst = 22, Lifetime = 0.55f, Speed = 3.5f, Size = 0.16f,
+                                                Gravity = 1.2f, Angle = 25f, Radius = 0.2f };
+        static readonly Fx DashRing = new Fx { Name = "DashRing", Rotation = new Vector3(90f, 0f, 0f), Shape = ParticleSystemShapeType.Circle, Burst = 18, Lifetime = 0.6f,
+                                               Speed = 1.6f, Size = 0.3f, Radius = 0.3f, Color = FoamColor, OnSurface = true, Grow = true };
+        static readonly Fx BoostSpray = new Fx { Name = "BoostSpray", Rotation = new Vector3(-60f, 180f, 0f), Continuous = true, Lifetime = 0.5f, Speed = 2.6f, Size = 0.17f,
+                                                 Gravity = 1.2f, Angle = 35f, Radius = 0.45f };
+        static readonly Fx BallSplash = new Fx { Name = "Splash", Continuous = true, Lifetime = 0.45f, Speed = 2.2f, Size = 0.12f, Gravity = 1.4f, Angle = 40f, Radius = 0.15f };
+        static readonly Fx GoalSplash = new Fx { Name = "GoalSplash", Continuous = true, Lifetime = 0.9f, Speed = 5f, Size = 0.2f, Gravity = 1.3f, Angle = 50f, Radius = 0.4f };
         const string PhysicsDir = RootDir + "/Art/Physics";
 
 
@@ -112,9 +175,9 @@ namespace Waterpulse.EditorTools
             // La escena nueva se crea ANTES de cargar assets: NewScene descarga los assets no usados
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var config = LoadOrCreateConfig();
-            var difficulty = LoadOrCreate<DifficultySO>(DifficultyPath);
+            var levels = DifficultyLevels();
+            UiSpriteGenerator.EnsureSprites();   // formas de la interfaz (y la gota de las partículas, que usan los materiales), antes de montar el HUD
             var mats = new Materials();
-            UiSpriteGenerator.EnsureSprites();   // formas de la interfaz, antes de montar el HUD
 
             BuildLight();
             var pool = BuildPool(config, mats);
@@ -127,19 +190,22 @@ namespace Waterpulse.EditorTools
                 Energy = LoadOrCreate<EnergyConfigSO>(EnergyConfigPath),
                 XutTragol = LoadOrCreate<AbilityDefinitionSO>(XutTragolPath, InitXutTragol),
                 TorpedeBlau = LoadOrCreate<AbilityDefinitionSO>(TorpedeBlauPath, InitTorpedeBlau),
+                MurAigua = LoadOrCreate<AbilityDefinitionSO>(MurAiguaPath, InitMurAigua),
+                KeeperEnergy = LoadOrCreate<EnergyConfigSO>(KeeperEnergyConfigPath, InitKeeperEnergy),
+                Levels = levels,
                 BallTrail = ball.GetComponent<TrailRenderer>(),
             };
 
             // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
-            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, difficulty, false), abilities);
-            var awayAI = BuildTeamAI(TeamSide.Away, ball, difficulty, true);
+            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, levels, false), abilities);
+            var awayAI = BuildTeamAI(TeamSide.Away, ball, levels, true);
             if (withRivals) BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, awayAI, abilities);
 
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath),
                                          LoadOrCreate<UsersConfigSO>(UsersConfigPath), out var scoring, out var pause);
             BuildHumanControl(config, ball);
             var cam = BuildCamera(config, pool, ball);
-            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, ball);
+            BuildHud(config, LoadOrCreate<MenuConfigSO>(MenuSceneBuilder.ConfigPath), flow, scoring, pause, cam, ball, levels);
             BuildAudio(SoundGenerator.EnsureAudio(abilities.XutTragol, abilities.TorpedeBlau), AudioScene.Match);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -182,21 +248,74 @@ namespace Waterpulse.EditorTools
             a.duration = 1f;
         }
 
+        // Niveles de dificultad en el orden del menú (decidido: Fàcil y Difícil). Solo crea los que faltan
+        internal static DifficultySO[] DifficultyLevels() => new[]
+        {
+            LoadOrCreate<DifficultySO>(EasyDifficultyPath, InitEasy),
+            LoadOrCreate<DifficultySO>(HardDifficultyPath, InitHard),
+        };
+
+        // Fàcil: reacciona tarde, presiona poco, nada más lento, no usa habilidades, falla más el verde y sale la guía
+        static void InitEasy(DifficultySO d)
+        {
+            d.displayName = "Fàcil";
+            d.reactionTime = 0.6f;
+            d.aggressiveness = 0.3f;
+            d.rivalSpeedMultiplier = 0.85f;
+            d.useAbilities = false;
+            d.shotGreenChance = 0.25f;
+            d.shotMissMinFill = 0.4f;
+            d.showControlHints = true;
+        }
+
+        // Difícil: más rápida que el antiguo "Competidor" (0,35 s, 0,6, 50 % de verde), con habilidades y sin guía
+        static void InitHard(DifficultySO d)
+        {
+            d.displayName = "Difícil";
+            d.reactionTime = 0.2f;
+            d.aggressiveness = 0.8f;
+            d.rivalSpeedMultiplier = 1f;
+            d.useAbilities = true;
+            d.shotGreenChance = 0.7f;
+            d.shotMissMinFill = 0.6f;
+            d.showControlHints = false;
+        }
+
+        // Mur d'Aigua del portero: con 100 de energía, 2 s de muro que para todos los tiros (decidido por el usuario)
+        static void InitMurAigua(AbilityDefinitionSO a)
+        {
+            a.kind = AbilityKind.Wall;
+            a.displayName = "Mur d'Aigua";
+            a.cost = 100f;
+            a.duration = 2f;
+        }
+
+        // Energía del portero: empieza vacía y se llena sola en ~60 s (decidido por el usuario)
+        static void InitKeeperEnergy(EnergyConfigSO e)
+        {
+            e.maxEnergy = 100f;
+            e.initialEnergy = 0f;
+            e.passiveRechargePerSecond = 100f / 60f;
+        }
+
         class AbilitySetup
         {
             public EnergyConfigSO Energy;
+            public EnergyConfigSO KeeperEnergy;
             public AbilityDefinitionSO XutTragol;
             public AbilityDefinitionSO TorpedeBlau;
+            public AbilityDefinitionSO MurAigua;
+            public DifficultySO[] Levels;
             public TrailRenderer BallTrail;
         }
 
-        static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO difficulty, bool aggressive)
+        static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO[] levels, bool aggressive)
         {
             var go = new GameObject("TeamAI_" + team);
             var teamAI = go.AddComponent<TeamAI>();
             SetEnum(teamAI, "team", (int)team);
             SetRef(teamAI, "ball", ball);
-            SetRef(teamAI, "difficulty", difficulty);
+            SetRefs(teamAI, "levels", levels);
             SetFlag(teamAI, "aggressive", aggressive);
             return teamAI;
         }
@@ -224,8 +343,16 @@ namespace Waterpulse.EditorTools
 
             // El agua (y el fondo) ocupa justo el campo, de pared a pared y de línea de gol a línea de gol: no sobresale.
             // Las redes, que quedan 0,8 m detrás de la línea, quedan fuera del agua (decidido por el usuario)
-            Prim(PrimitiveType.Cube, "Water", t, new Vector3(0f, -0.025f, 0f), new Vector3(c.poolLength, 0.05f, c.poolWidth), mats.Water, false, false);
+            // Superficie con onadas (shader WaterWaves): malla subdividida de 1×1 escalada al campo, en y = 0
+            var water = new GameObject("Water", typeof(MeshFilter), typeof(MeshRenderer));
+            water.transform.SetParent(t, false);
+            water.transform.localScale = new Vector3(c.poolLength, 1f, c.poolWidth);
+            water.GetComponent<MeshFilter>().sharedMesh = WaterGridMesh();
+            var waterRenderer = water.GetComponent<MeshRenderer>();
+            waterRenderer.sharedMaterial = mats.Water;
+            waterRenderer.shadowCastingMode = ShadowCastingMode.Off;
             Prim(PrimitiveType.Cube, "Floor", t, new Vector3(0f, -PoolDepth, 0f), new Vector3(c.poolLength, 0.2f, c.poolWidth), mats.Floor, false);
+            BuildStands(t, c);
 
             // Paredes con colisión: los límites físicos coinciden con las bandas y las líneas de gol.
             // En cada línea de gol la pared se parte en dos tramos y deja libre la boca de la portería
@@ -259,6 +386,61 @@ namespace Waterpulse.EditorTools
                 CrossLine(lines, "Line5m_" + side, (hx - Line5m) * s, c.poolWidth, mats.LineYellow);
             }
             return bounds;
+        }
+
+        // Gradas con público de huevos que saltan (Gradas, del equipo; antes se ponían a mano en la escena y se perdían
+        // al regenerarla). Rodean la piscina con su pasillo (gap) y empiezan a StandsClearance de la pared,
+        // como las había ajustado el equipo (17,4 × 9,3 para la piscina de 20 × 12)
+        static void BuildStands(Transform pool, GameConfigSO c)
+        {
+            var go = new GameObject("Gradas");
+            go.transform.SetParent(pool, false);
+            var stands = go.AddComponent<Gradas>();
+            stands.length = c.poolLength - 2f * stands.gap + 2f * StandsClearance;
+            stands.width = c.poolWidth - 2f * stands.gap + 2f * StandsClearance;
+            stands.baseHeight = StandsBaseHeight;
+        }
+
+        // Malla plana de 1×1 m subdividida en WaterGridX × WaterGridZ cuadros (para que se vean las onadas del shader).
+        // Se guarda como asset y se rehace en cada ejecución
+        static Mesh WaterGridMesh()
+        {
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(WaterMeshPath);
+            if (mesh == null)
+            {
+                EnsureFolder(RootDir + "/Art/Meshes");
+                mesh = new Mesh { name = "WaterGrid" };
+                AssetDatabase.CreateAsset(mesh, WaterMeshPath);
+            }
+
+            int nx = WaterGridX, nz = WaterGridZ;
+            var vertices = new Vector3[(nx + 1) * (nz + 1)];
+            var normals = new Vector3[vertices.Length];
+            for (int j = 0; j <= nz; j++)
+            for (int i = 0; i <= nx; i++)
+            {
+                int v = j * (nx + 1) + i;
+                vertices[v] = new Vector3((float)i / nx - 0.5f, 0f, (float)j / nz - 0.5f);
+                normals[v] = Vector3.up;
+            }
+            var triangles = new int[nx * nz * 6];
+            int k = 0;
+            for (int j = 0; j < nz; j++)
+            for (int i = 0; i < nx; i++)
+            {
+                int v00 = j * (nx + 1) + i, v10 = v00 + 1, v01 = v00 + nx + 1, v11 = v01 + 1;
+                // Sentido horario visto desde arriba: la cara mira hacia la cámara
+                triangles[k++] = v00; triangles[k++] = v01; triangles[k++] = v11;
+                triangles[k++] = v00; triangles[k++] = v11; triangles[k++] = v10;
+            }
+
+            mesh.Clear();
+            mesh.vertices = vertices;
+            mesh.normals = normals;
+            mesh.triangles = triangles;
+            mesh.bounds = new Bounds(Vector3.zero, new Vector3(1f, WaterBoundsHeight, 1f));   // las olas suben y bajan
+            EditorUtility.SetDirty(mesh);
+            return mesh;
         }
 
         static void CrossLine(Transform parent, string name, float x, float width, Material mat)
@@ -319,6 +501,12 @@ namespace Waterpulse.EditorTools
 
             // Estela del Xut del Tràngol (apagada hasta que se usa la habilidad)
             AddTrail(go, mats.Trail, BallTrailTime, BallTrailWidth, new Color(1f, 0.6f, 0.1f));
+
+            // Esquitxades de la pelota: rebote, recepción de un pase y gol
+            var fx = go.AddComponent<BallWaterFx>();
+            SetRef(fx, "ball", ball);
+            SetRef(fx, "splash", Particles(go.transform, BallSplash, mats.Splash));
+            SetRef(fx, "goalSplash", Particles(go.transform, GoalSplash, mats.Splash));
             return ball;
         }
 
@@ -336,37 +524,85 @@ namespace Waterpulse.EditorTools
             return trail;
         }
 
-        // Salpicadura: ráfaga de gotas hacia arriba que se lanza al activar una habilidad
-        static ParticleSystem AddSplash(Transform parent, Material material)
+        // Receta de un sistema de partículas de agua (solo aspecto)
+        class Fx
         {
-            var go = new GameObject("Splash");
+            public string Name;
+            public Vector3 Rotation = new Vector3(-90f, 0f, 0f);   // por defecto, hacia arriba
+            public Vector3 Offset;
+            public bool Continuous;      // emite en continuo con el ritmo que le ponga un componente (o con Emit); si no, una ráfaga al lanzarlo
+            public short Burst;
+            public float Lifetime, Speed, Size, Gravity, Angle, Radius;
+            public ParticleSystemShapeType Shape = ParticleSystemShapeType.Cone;
+            public Color Color = DropColor;
+            public bool OnSurface;       // tumbada sobre el agua (espuma) en lugar de mirando a la cámara
+            public bool Grow;            // se agranda mientras se desvanece
+        }
+
+        // Sistema de partículas de agua según su receta. Todas se desvanecen al final y quedan donde salen (espacio de mundo)
+        static ParticleSystem Particles(Transform parent, Fx fx, Material material)
+        {
+            var go = new GameObject(fx.Name);
             go.transform.SetParent(parent, false);
-            go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // el cono emite hacia arriba
+            go.transform.localPosition = fx.Offset;
+            go.transform.localRotation = Quaternion.Euler(fx.Rotation);
             var ps = go.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
             var main = ps.main;
-            main.duration = SplashDuration;
-            main.loop = false;
-            main.playOnAwake = false;
-            main.startLifetime = SplashLifetime;
-            main.startSpeed = SplashSpeed;
-            main.startSize = SplashSize;
-            main.startColor = new Color(0.75f, 0.9f, 1f, 0.9f);
-            main.gravityModifier = SplashGravity;
+            main.duration = FxBurstDuration;
+            main.loop = fx.Continuous;
+            main.playOnAwake = fx.Continuous;
+            main.startLifetime = fx.Lifetime;
+            main.startSpeed = fx.Speed;
+            main.startSize = fx.Size;
+            main.startColor = fx.Color;
+            main.gravityModifier = fx.Gravity;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var emission = ps.emission;
             emission.rateOverTime = 0f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, SplashParticles) });
+            if (!fx.Continuous) emission.SetBursts(new[] { new ParticleSystem.Burst(0f, fx.Burst) });
 
             var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = SplashConeAngle;
-            shape.radius = SplashRadius;
+            shape.shapeType = fx.Shape;
+            shape.angle = fx.Angle;
+            shape.radius = fx.Radius;
 
-            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = material;
+            var fade = ps.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+            if (fx.Grow)
+            {
+                var size = ps.sizeOverLifetime;
+                size.enabled = true;
+                size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.6f));
+            }
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.renderMode = fx.OnSurface ? ParticleSystemRenderMode.HorizontalBillboard : ParticleSystemRenderMode.Billboard;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.sortingOrder = FxSortingOrder;   // encima del agua (los dos son transparentes)
             return ps;
+        }
+
+        // Partículas de agua de un jugador (PlayerWaterFx): espuma al nadar, dash (esquitxada y anillo) y acelerón
+        static void AddPlayerWaterFx(GameObject go, PlayerController controller, Materials mats)
+        {
+            var root = new GameObject("WaterFx").transform;
+            root.SetParent(go.transform, false);
+            var dash = Particles(root, DashSpray, mats.Splash);
+            var ring = Particles(dash.transform, DashRing, mats.Splash);   // hija: sale con la esquitxada
+            ring.transform.rotation = root.rotation * Quaternion.Euler(DashRing.Rotation);   // tumbado, no girado con la esquitxada
+            var fx = go.AddComponent<PlayerWaterFx>();
+            SetRef(fx, "player", controller);
+            SetRef(fx, "wake", Particles(root, Wake, mats.Splash));
+            SetRef(fx, "dashBurst", dash);
+            SetRef(fx, "boostSpray", Particles(root, BoostSpray, mats.Splash));
         }
 
         // Un equipo: Atacant, Organitzador y Defensor con AIBrain, y el portero con GoalkeeperController
@@ -381,7 +617,8 @@ namespace Waterpulse.EditorTools
                 bool keeper = role == PlayerRole.Goalkeeper;
                 var player = BuildPlayer(c, mats, ball, pool, root, team, role, position, KickoffLayout.Facing(team),
                                          keeper ? mats.GoalkeeperCap : cap, suit, keeper ? null : teamAI);
-                if (!keeper) AddAbility(c, player, abilities, mats);   // los porteros no tienen habilidad en el prototipo
+                if (keeper) AddKeeperWall(c, player, team, pool, abilities, mats);
+                else AddAbility(c, player, abilities, mats);
             }
         }
 
@@ -403,6 +640,7 @@ namespace Waterpulse.EditorTools
             SetRef(controller, "ball", ball);
             SetEnum(controller, "team", (int)team);
             SetEnum(controller, "role", (int)role);
+            AddPlayerWaterFx(go, controller, mats);
 
             // Cerebro por defecto: el portero tiene el suyo; los de campo, IA de colocación
             if (role == PlayerRole.Goalkeeper)
@@ -471,6 +709,39 @@ namespace Waterpulse.EditorTools
             SetRef(playerAnimator, "player", controller);
         }
 
+        // Portero: energía propia (se recarga sola) y el Mur d'Aigua, con su muro delante de la portería que defiende.
+        // El portero rival (IA) lo levanta solo cuando le tiran; el del humano, con L cuando lo controla (E)
+        static void AddKeeperWall(GameConfigSO c, GameObject go, TeamSide team, PoolBounds pool, AbilitySetup setup, Materials mats)
+        {
+            var energy = go.AddComponent<PlayerEnergy>();
+            SetRef(energy, "config", setup.KeeperEnergy);
+            var controller = go.GetComponent<PlayerController>();
+            SetRef(controller, "wall", setup.MurAigua);
+
+            // El muro, en la boca de la portería que defiende (un poco hacia el campo)
+            float inward = team.AttackSign();
+            var wallGo = new GameObject("WaterWall_" + team);
+            wallGo.transform.position = pool.Center + Vector3.right * (inward * (WaterWallInset - pool.HalfLength));
+            var curtain = Prim(PrimitiveType.Cube, "Curtain", wallGo.transform, new Vector3(0f, WaterWallHeight * 0.5f - WaterWallSink, 0f),
+                               new Vector3(WaterWallThickness, WaterWallHeight, c.goalWidth + WaterWallOverhang), mats.WaterWall, false, false);
+            var spray = Particles(wallGo.transform, new Fx
+            {
+                Name = "WallSpray", Rotation = new Vector3(0f, 90f, 0f), Shape = ParticleSystemShapeType.SingleSidedEdge, Continuous = true,
+                Radius = (c.goalWidth + WaterWallOverhang) * 0.5f, Lifetime = 0.7f, Speed = 3.5f, Size = 0.25f, Gravity = 0.9f,
+            }, mats.Splash);
+            var wall = wallGo.AddComponent<WaterWall>();
+            SetRef(wall, "curtain", curtain);
+            SetRef(wall, "spray", spray);
+
+            var ability = go.AddComponent<MurAiguaAbility>();
+            SetRef(ability, "splash", Particles(go.transform, AbilitySplash, mats.Splash));
+            SetRef(ability, "wall", wall);
+            var keeper = go.GetComponent<GoalkeeperController>();
+            SetRef(keeper, "wall", wall);
+            SetFlag(keeper, "useWall", team == TeamSide.Away);   // solo el portero rival lo usa solo
+            SetRefs(keeper, "levels", setup.Levels);              // y solo en los niveles con habilidades
+        }
+
         // Estamina, energía y las dos habilidades de un jugador de campo
         static void AddAbility(GameConfigSO c, GameObject go, AbilitySetup setup, Materials mats)
         {
@@ -481,15 +752,14 @@ namespace Waterpulse.EditorTools
 
             // Todos los jugadores de campo tienen las dos habilidades con la tecla L (decidido por el usuario):
             // con la pelota, el Xut del Tràngol; sin ella, el Torpede Blau
-            var splash = AddSplash(go.transform, mats.Splash);
             var controller = go.GetComponent<PlayerController>();
             SetRef(controller, "powerShot", setup.XutTragol);
             SetRef(controller, "boost", setup.TorpedeBlau);
             var xut = go.AddComponent<XutTragolAbility>();
-            SetRef(xut, "splash", splash);
+            SetRef(xut, "splash", Particles(go.transform, PowerShotColumn, mats.Splash));   // columna de agua al chutar
             SetRef(xut, "ballTrail", setup.BallTrail);
             var torpede = go.AddComponent<TorpedeBlauAbility>();
-            SetRef(torpede, "splash", splash);
+            SetRef(torpede, "splash", Particles(go.transform, AbilitySplash, mats.Splash));
             SetRef(torpede, "trail", AddTrail(go, mats.Trail, PlayerTrailTime, PlayerTrailWidth, new Color(0.3f, 0.7f, 1f)));
         }
 
@@ -504,12 +774,15 @@ namespace Waterpulse.EditorTools
             var rewards = go.AddComponent<EnergyRewards>();
             SetRef(rewards, "config", energy);
             scoring = go.AddComponent<MatchScoring>();
+            SetRef(flow, "scoring", scoring);   // los goles llegan a MatchFlow con lo que valen
             SetRef(scoring, "config", scoringConfig);
             SetRef(scoring, "users", usersConfig);
             SetRef(scoring, "ball", ball);
             pause = go.AddComponent<MatchPause>();
             SetRef(pause, "config", c);
             SetRef(pause, "match", flow);
+            var slowMotion = go.AddComponent<ShotSlowMotion>();   // cámara lenta mientras alguien carga un tiro
+            SetRef(slowMotion, "config", c);
             return flow;
         }
 
@@ -550,7 +823,8 @@ namespace Waterpulse.EditorTools
 
         // HUD de retransmisión: marcas sobre los jugadores, marcador, bàners de avisos y de habilidad, panel del jugador,
         // barra de tiro, botón de pausa, resumen final y menú de pausa
-        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, BallController ball)
+        static void BuildHud(GameConfigSO c, MenuConfigSO menuConfig, MatchFlow flow, MatchScoring scoring, MatchPause pause, Camera cam, BallController ball,
+                             DifficultySO[] levels)
         {
             var canvasGo = new GameObject("HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -571,6 +845,8 @@ namespace Waterpulse.EditorTools
             meterFill.rectTransform.anchorMax = new Vector2(1f, 0f);
             var meterGreen = StretchedImage(meterBar, "Green", new Color(Volt.r, Volt.g, Volt.b, 0.85f));
             meterBar.gameObject.SetActive(false);
+            var reticle = Icon(root, "ShotReticle", UiSpriteGenerator.Reticle, Vector2.zero, Vector2.zero, ReticleSize, LocalColor);
+            reticle.gameObject.SetActive(false);
             var meterView = canvasGo.AddComponent<ShotMeterView>();
             SetRef(meterView, "ball", ball);
             SetRef(meterView, "viewCamera", cam);
@@ -578,16 +854,140 @@ namespace Waterpulse.EditorTools
             SetRef(meterView, "bar", meterBar);
             SetRef(meterView, "greenZone", meterGreen.rectTransform);
             SetRef(meterView, "fill", meterFill.rectTransform);
+            SetRef(meterView, "reticle", reticle.rectTransform);
 
             // Botón de pausa para ratón y táctil. Sin navegación: si quedara seleccionado, el A del mando (pase) lo pulsaría
             var pauseButton = StyledButton<Button>(root, "PauseButton", "II", 44, Vector2.one, new Vector2(-70f, -60f), new Vector2(90f, 90f));
             pauseButton.navigation = new Navigation { mode = Navigation.Mode.None };
 
+            BuildControlHints(canvasGo, levels);
+            BuildScoreFeed(canvasGo, scoring);
+            BuildTouchControls(canvasGo, ball);   // encima del partido, debajo del resumen y la pausa
             BuildResults(canvasGo, c, menuConfig, flow, scoring);
             BuildPauseMenu(canvasGo, menuConfig, flow, pause, pauseButton);   // la última: se dibuja encima de todo
 
             // Los botones necesitan un EventSystem que lea el Input System nuevo
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
+
+        // Multiplicador del equipo humano debajo del marcador y avisos de puntos a la derecha (ScoreFeedView)
+        static void BuildScoreFeed(GameObject canvasGo, MatchScoring scoring)
+        {
+            var pill = Box(canvasGo.transform, "Multiplier", Top, MultiplierSize, false);
+            pill.anchoredPosition = new Vector2(0f, MultiplierTop);
+            var multiplier = Label(pill, "Label", 26, new Vector2(0.5f, 0.5f), Vector2.zero, MultiplierSize);
+
+            var feed = new GameObject("ScoreFeed", typeof(RectTransform)).GetComponent<RectTransform>();
+            feed.SetParent(canvasGo.transform, false);
+            feed.anchorMin = feed.anchorMax = FeedAnchor;
+            feed.sizeDelta = Vector2.zero;
+            var lines = new Text[FeedLines];
+            for (int i = 0; i < FeedLines; i++)
+            {
+                // La 0 (la más nueva) abajo; las anteriores van subiendo
+                lines[i] = Label(feed, "Line" + i, 28, new Vector2(0.5f, 0.5f), new Vector2(-FeedLineSize.x * 0.5f - FeedMargin, i * FeedLineSize.y), FeedLineSize);
+                lines[i].alignment = TextAnchor.MiddleRight;
+            }
+
+            var view = canvasGo.AddComponent<ScoreFeedView>();
+            SetRef(view, "scoring", scoring);
+            SetEnum(view, "humanTeam", (int)TeamSide.Home);
+            SetRef(view, "multiplierPanel", pill.gameObject);
+            SetRef(view, "multiplierLabel", multiplier);
+            SetRefs(view, "lines", lines);
+        }
+
+        // Guía de controles abajo en el centro (ControlHints): las teclas que sirven ahora mismo
+        static void BuildControlHints(GameObject canvasGo, DifficultySO[] levels)
+        {
+            var panel = Box(canvasGo.transform, "ControlHints", new Vector2(0.5f, 0f), HintsSize, false);
+            panel.anchoredPosition = new Vector2(HintsOffsetX, HintsBottom + HintsSize.y * 0.5f);
+            var label = Label(panel, "Label", 24, new Vector2(0.5f, 0.5f), Vector2.zero, HintsSize, true);
+            label.supportRichText = true;
+            label.color = SoftText;
+            var hints = canvasGo.AddComponent<ControlHints>();
+            SetRef(hints, "panel", panel.gameObject);
+            SetRef(hints, "label", label);
+            SetRefs(hints, "levels", levels);
+        }
+
+        // Controles táctiles (TouchControls), según la guía de botones del equipo: zona invisible en la mitad izquierda
+        // con el joystick dinámico, tres botones grandes en arco abajo a la derecha (cambian de función según la jugada)
+        // y un DASH pequeño encima. Aspecto: sprites del pack Mobile Controls de Kenney (CC0) en Art/UI/Mobile si están;
+        // si no, los círculos de UiSpriteGenerator. Blancos translúcidos (decidido: sin colores).
+        // Más el aviso de girar el móvil. El grupo empieza apagado: TouchControls lo enciende solo en móvil y tableta
+        static void BuildTouchControls(GameObject canvasGo, BallController ball)
+        {
+            var group = StretchedGroup(canvasGo.transform, "TouchControls");
+            group.blocksRaycasts = true;
+            var layer = group.transform;
+
+            // Joystick: la zona (mitad izquierda) recibe el dedo; la base y el mando aparecen donde se toca
+            var zone = StretchedImage(layer, "JoystickZone", Color.clear);
+            zone.raycastTarget = true;
+            zone.rectTransform.anchorMax = new Vector2(TouchJoystickZoneWidth, 1f);
+            var stickBase = Icon(zone.transform, "StickBase", UiSpriteGenerator.CircleRing, Vector2.zero, Vector2.zero, TouchStickSize, TouchGlyphColor);
+            ApplyMobileSprite(stickBase, MobileStickBaseSprite);
+            var knob = Icon(stickBase.transform, "Knob", UiSpriteGenerator.Circle, new Vector2(0.5f, 0.5f), Vector2.zero, TouchKnobSize, TouchButtonColor);
+            ApplyMobileSprite(knob, MobileKnobSprite);
+            var joystick = zone.gameObject.AddComponent<TouchJoystick>();
+            SetRef(joystick, "stickBase", stickBase.rectTransform);
+            SetRef(joystick, "knob", knob.rectTransform);
+            SetFloat(joystick, "range", TouchStickRange);
+
+            var right = new Vector2(1f, 0f);
+            var first = TouchButton(layer, "First", "PASSA", right, TouchFirstPosition, TouchBigSize);
+            var second = TouchButton(layer, "Second", "XUTA", right, TouchSecondPosition, TouchBigSize);
+            var third = TouchButton(layer, "Third", "DASH", right, TouchThirdPosition, TouchBigSize);
+            var dash = TouchButton(layer, "Dash", "DASH", right, TouchDashPosition, TouchSmallSize);
+
+            // Aviso de girar el móvil: tapa la pantalla mientras está en vertical
+            var notice = StretchedImage(layer, "RotateNotice", PanelColor);
+            notice.raycastTarget = true;
+            var noticeLabel = Label(notice.transform, "Label", 56, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600f, 200f));
+            noticeLabel.text = "GIRA EL MÒBIL\n<size=34>Es juga en horitzontal</size>";
+            noticeLabel.supportRichText = true;
+            notice.gameObject.SetActive(false);
+            group.gameObject.SetActive(false);
+
+            var view = canvasGo.AddComponent<TouchControls>();
+            SetRef(view, "ball", ball);
+            SetRef(view, "controls", group.gameObject);
+            SetRef(view, "first", first);
+            SetRef(view, "second", second);
+            SetRef(view, "third", third);
+            SetRef(view, "dash", dash);
+            SetRef(view, "rotateNotice", notice.gameObject);
+        }
+
+        // Botón táctil redondo con su texto (TouchActionButton). Lo que hace lo decide TouchControls
+        static TouchActionButton TouchButton(Transform parent, string name, string text, Vector2 anchor, Vector2 position, float size)
+        {
+            var image = Icon(parent, name, UiSpriteGenerator.Circle, anchor, position, size, TouchButtonColor);
+            ApplyMobileSprite(image, MobileButtonSprite);
+            image.raycastTarget = true;
+            var label = Label(image.transform, "Label", size >= TouchBigSize ? 30 : 22, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(size, size));
+            label.text = text;
+            var button = image.gameObject.AddComponent<TouchActionButton>();
+            SetRef(button, "label", label);
+            return button;
+        }
+
+        // Sprite del pack de Kenney (Art/UI/Mobile/<name>.png) si está; si no, se queda el círculo generado.
+        // Los de Kenney ya son blancos translúcidos: se pintan en blanco
+        static void ApplyMobileSprite(Image image, string name)
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{MobileSpriteDir}/{name}.png");
+            if (sprite == null) return;
+            image.sprite = sprite;
+            image.color = Color.white;
+        }
+
+        static void SetFloat(Object target, string field, float value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).floatValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // Marcas sobre los jugadores (PlayerMarkersView): plantilla de la mini placa (rol y energía con la marca del coste de
@@ -658,10 +1058,14 @@ namespace Waterpulse.EditorTools
             var homeName = Label(homeBlock.transform, "HomeName", 40, Middle, Vector2.zero, new Vector2(210f, 60f));
             homeName.color = DarkText;
             homeName.GetComponent<Outline>().enabled = false;   // texto oscuro sobre blanco: sin contorno
-            var homeScore = Label(board, "HomeScore", 64, Middle, new Vector2(-148f, 0f), new Vector2(100f, 80f));
+            var homeScore = Label(board, "HomeScore", ScorePointsFont, Middle, new Vector2(-148f, ScorePointsY), ScoreCellSize);
+            var homeGoals = Label(board, "HomeGoals", ScoreGoalsFont, Middle, new Vector2(-148f, ScoreGoalsY), ScoreCellSize, true);
+            homeGoals.color = SoftText;
             var clock = Label(board, "Clock", 52, Middle, Vector2.zero, new Vector2(196f, 70f));
             clock.color = Volt;
-            var awayScore = Label(board, "AwayScore", 64, Middle, new Vector2(148f, 0f), new Vector2(100f, 80f));
+            var awayScore = Label(board, "AwayScore", ScorePointsFont, Middle, new Vector2(148f, ScorePointsY), ScoreCellSize);
+            var awayGoals = Label(board, "AwayGoals", ScoreGoalsFont, Middle, new Vector2(148f, ScoreGoalsY), ScoreCellSize, true);
+            awayGoals.color = SoftText;
             var awayBlock = Panel(board, "AwayBlock", new Vector2(1f, 0.5f), new Vector2(-120f, 0f), new Vector2(224f, 70f), RivalColor);
             var awayName = Label(awayBlock.transform, "AwayName", 40, Middle, Vector2.zero, new Vector2(210f, 60f));
             var homeDot = Panel(board, "HomePossession", Vector2.zero, new Vector2(120f, -14f), new Vector2(18f, 18f), Volt);
@@ -678,6 +1082,8 @@ namespace Waterpulse.EditorTools
             SetRef(view, "clockLabel", clock);
             SetRef(view, "awayScoreLabel", awayScore);
             SetRef(view, "awayNameLabel", awayName);
+            SetRef(view, "homeGoalsLabel", homeGoals);
+            SetRef(view, "awayGoalsLabel", awayGoals);
             SetRef(view, "homePossession", homeDot.gameObject);
             SetRef(view, "awayPossession", awayDot.gameObject);
             SetRef(view, "messagePanel", banner.gameObject);
@@ -946,6 +1352,21 @@ namespace Waterpulse.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // Lista de referencias (p. ej. los niveles de dificultad)
+        internal static void SetRefs(Object target, string field, Object[] values)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null || !prop.isArray)
+            {
+                Debug.LogError($"[Waterpulse] Lista '{field}' no encontrada en {target.GetType().Name}");
+                return;
+            }
+            prop.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++) prop.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         internal static void SetRef(Object target, string field, Object value)
         {
             var so = new SerializedObject(target);
@@ -973,11 +1394,11 @@ namespace Waterpulse.EditorTools
         internal class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
-            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Trail, Splash;
+            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Trail, Splash, WaterWall, HallWall, HallFloor;
 
             public Materials()
             {
-                Water = Lit("Water", new Color(0.1f, 0.5f, 0.85f, 0.6f), true);
+                Water = WaterSurface();
                 Floor = Lit("PoolFloor", new Color(0.55f, 0.82f, 0.92f));
                 Wall = Lit("PoolWall", new Color(0.88f, 0.9f, 0.92f));
                 LineWhite = Lit("LineWhite", Color.white);
@@ -991,9 +1412,12 @@ namespace Waterpulse.EditorTools
                 HomeSuit = Lit("HomeSuit", new Color(0.05f, 0.18f, 0.6f));
                 AwaySuit = Lit("AwaySuit", new Color(0.85f, 0.85f, 0.85f));
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
+                WaterWall = Lit("WaterWall", new Color(0.65f, 0.88f, 1f, 0.45f), true);
+                HallWall = Lit("HallWall", new Color(0.33f, 0.4f, 0.48f));
+                HallFloor = Lit("HallFloor", new Color(0.5f, 0.53f, 0.58f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
                 Trail = Unlit("Trail", "Sprites/Default");
-                Splash = Unlit("Splash", "Universal Render Pipeline/Particles/Unlit");
+                Splash = WaterParticles("Splash");
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
             }
 
@@ -1020,6 +1444,46 @@ namespace Waterpulse.EditorTools
                     m.renderQueue = (int)RenderQueue.Transparent;
                     m.SetShaderPassEnabled("ShadowCaster", false);
                 }
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+
+            // Agua con onadas (shader WaterWaves). Si el shader no está (no compila), el agua plana de antes
+            static Material WaterSurface()
+            {
+                var shader = Shader.Find("Waterpulse/WaterWaves");
+                if (shader == null) return Lit("Water", new Color(0.1f, 0.5f, 0.85f, 0.6f), true);
+                string path = $"{MaterialDir}/Water.mat";
+                var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (m == null)
+                {
+                    m = new Material(shader);
+                    AssetDatabase.CreateAsset(m, path);
+                }
+                else if (m.shader != shader)
+                {
+                    m.shader = shader;
+                }
+                m.renderQueue = (int)RenderQueue.Transparent;
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+
+            // Partículas de agua (gotas y espuma): sin iluminación, transparentes y con la gota de borde suave de
+            // UiSpriteGenerator, para que no se vean cuadrados. Respeta el color de cada partícula
+            static Material WaterParticles(string name)
+            {
+                var m = Unlit(name, "Universal Render Pipeline/Particles/Unlit");
+                var drop = AssetDatabase.LoadAssetAtPath<Texture2D>(UiSpriteGenerator.PathOf(UiSpriteGenerator.FxDrop));
+                if (drop != null) m.SetTexture("_BaseMap", drop);
+                m.SetFloat("_Surface", 1f);
+                m.SetFloat("_Blend", 0f);
+                m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                m.SetFloat("_ZWrite", 0f);
+                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                m.SetOverrideTag("RenderType", "Transparent");
+                m.renderQueue = (int)RenderQueue.Transparent;
                 EditorUtility.SetDirty(m);
                 return m;
             }

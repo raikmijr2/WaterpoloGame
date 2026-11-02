@@ -21,5 +21,11 @@ namespace Waterpulse.Gameplay
         public void Add(float amount) => Meter.Add(amount);
         public bool CanSpend(float cost) => Meter.CanSpend(cost);
         public bool TrySpend(float cost) => Meter.TrySpend(cost);
+
+        // Recarga sola (el porter, para el muro). Los demás tienen 0 y solo ganan energía con las recompensas
+        void Update()
+        {
+            if (config.passiveRechargePerSecond > 0f) Meter.Add(config.passiveRechargePerSecond * Time.deltaTime);
+        }
     }
 }

@@ -5,14 +5,14 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.UI
 {
     // Mini placa sobre un jugador del equipo humano: su rol y su energía en una barra fina, con una marca en el coste
-    // del Xut del Tràngol (el ataque especial). Cuando llega a ese coste, la barra se resalta un poco (EnergyHighlight).
+    // de su habilidad especial (Xut del Tràngol; en el portero, el muro). Cuando llega a ese coste, la barra se resalta un poco (EnergyHighlight).
     // PlayerMarkersView crea una por jugador a partir de una plantilla y la coloca en pantalla
     public class PlayerPlate : MonoBehaviour
     {
         [SerializeField] Text roleLabel;
         [Tooltip("Relleno de la barra de energía: su anchorMax.x es el valor (0-1)")]
         [SerializeField] RectTransform energyFill;
-        [Tooltip("Marca en el coste del Xut del Tràngol")]
+        [Tooltip("Marca en el coste de la habilidad especial (Xut o muro)")]
         [SerializeField] RectTransform costMark;
         [SerializeField] EnergyHighlight highlight;
         [Tooltip("Lo que se mueve la barra por segundo hacia su valor (fracción de la barra)")]
@@ -31,11 +31,11 @@ namespace Waterpulse.UI
             roleLabel.text = role;
             shownEnergy = energy != null ? energy.Normalized : 0f;
 
-            bool hasAbility = player.PowerShot != null && energy != null && energy.Max > 0f;
+            bool hasAbility = player.SpecialAbility != null && energy != null && energy.Max > 0f;
             costMark.gameObject.SetActive(hasAbility);
             if (hasAbility)
             {
-                float cost = Mathf.Clamp01(player.PowerShot.cost / energy.Max);
+                float cost = Mathf.Clamp01(player.SpecialAbility.cost / energy.Max);
                 costMark.anchorMin = new Vector2(cost, costMark.anchorMin.y);
                 costMark.anchorMax = new Vector2(cost, costMark.anchorMax.y);
             }
@@ -51,6 +51,6 @@ namespace Waterpulse.UI
             highlight.SetReady(IsReady());
         }
 
-        bool IsReady() => Player.PowerShot != null && energy != null && energy.CanSpend(Player.PowerShot.cost);
+        bool IsReady() => Player.SpecialAbility != null && energy != null && energy.CanSpend(Player.SpecialAbility.cost);
     }
 }

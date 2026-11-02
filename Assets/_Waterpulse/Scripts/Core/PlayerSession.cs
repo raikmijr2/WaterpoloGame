@@ -12,6 +12,11 @@ namespace Waterpulse.Core
         public static string UserName { get; private set; }
         public static bool HasChosen { get; private set; }
         public static bool IsGuest => UserId == GuestId;
+        // Nivel de dificultad elegido en el menú (0 = Fàcil, 1 = Difícil). Abrir el partido directamente en el editor = Fàcil
+        public static int DifficultyIndex { get; set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetDifficulty() => DifficultyIndex = 0;
 
         public static void SignIn(int userId, string userName)
         {

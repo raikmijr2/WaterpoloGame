@@ -69,6 +69,10 @@ namespace Waterpulse.Config
         [Range(0f, 1f)] public float shotMinPowerFactor = 0.6f;
         [Tooltip("Desvío máximo del tiro con calidad 0 (grados). Con calidad 1 va donde apuntas")]
         public float shotMaxErrorAngle = 12f;
+        [Tooltip("Velocidad del tiempo mientras alguien carga el tiro (1 = normal). Deja tiempo para apuntar y para coger al portero")]
+        [Range(0.05f, 1f)] public float shotSlowMotionScale = 0.3f;
+        [Tooltip("Lo que se mueve el punto de mira por segundo real mientras carga (fracción de media portería)")]
+        public float shotAimSpeed = 2f;
 
         [Header("Portero")]
         [Tooltip("Velocidad del portero siguiendo la pelota (m/s)")]
@@ -241,17 +245,15 @@ namespace Waterpulse.Config
         public float dashCost = 30f;
         [Tooltip("Duración del impulso (s)")]
         public float dashDuration = 0.12f;
-        [Tooltip("Velocidad del dash desde parado, respecto a la máxima de nado. Cuanto más rápido vas, menos se nota: a velocidad máxima no hace nada")]
+        [Tooltip("Velocidad del dash respecto a la máxima de nado. Siempre da este impulso, también yendo a tope (decidido por el usuario)")]
         public float dashSpeedMultiplier = 3f;
-        [Tooltip("Fuerza mínima (0-1) para que haya dash. Por debajo (yendo casi a tope) no se hace ni gasta estamina")]
-        [Range(0f, 1f)] public float dashMinStrength = 0.1f;
         [Tooltip("Espera mínima entre dashes (s)")]
         public float dashCooldown = 0.5f;
         [Tooltip("Velocidad al nadar lento (Espacio) respecto a la máxima (0-1)")]
         [Range(0.1f, 1f)] public float slowSwimMultiplier = 0.4f;
         [Tooltip("Frenada cuando vas más rápido de lo que pide el stick, p. ej. al pulsar Espacio (m/s²). Alto = para casi en seco")]
         public float slowBrakeDeceleration = 40f;
-        [Tooltip("La IA rival hace dash si el objetivo está más lejos que esto (m)")]
+        [Tooltip("La IA (rivales y compañeros) hace dash si el objetivo está más lejos que esto (m)")]
         public float aiDashDistance = 4f;
 
         [Header("Pausa")]

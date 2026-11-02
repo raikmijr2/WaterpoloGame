@@ -7,6 +7,7 @@ namespace Waterpulse.Tests.EditMode
     // Flujo: Kickoff → Playing → GoalScored → Kickoff … → FullTime → Results, con gol de oro si hay empate
     public class MatchStateMachineTests
     {
+        const int GoalPoints = 100;
         const float Duration = 10f;
         const float Delay = 1f;
 
@@ -60,7 +61,7 @@ namespace Waterpulse.Tests.EditMode
         public void Goal_CountsAndGivesKickoffToConcedingTeam()
         {
             StartPlaying();
-            Assert.IsTrue(machine.RegisterGoal(TeamSide.Home));
+            Assert.IsTrue(machine.RegisterGoal(TeamSide.Home, GoalPoints));
             Assert.AreEqual(1, machine.HomeGoals);
             Assert.AreEqual(MatchState.GoalScored, machine.State);
 
@@ -74,7 +75,7 @@ namespace Waterpulse.Tests.EditMode
         {
             StartPlaying();
             machine.Tick(2f);
-            machine.RegisterGoal(TeamSide.Away);
+            machine.RegisterGoal(TeamSide.Away, GoalPoints);
             float remaining = machine.Timer.Remaining;
             machine.Tick(Delay * 0.5f);
             Assert.AreEqual(remaining, machine.Timer.Remaining, 1e-5f);
@@ -84,7 +85,7 @@ namespace Waterpulse.Tests.EditMode
         public void Goals_OutsidePlaying_AreIgnored()
         {
             machine.Begin(TeamSide.Home);
-            Assert.IsFalse(machine.RegisterGoal(TeamSide.Home));
+            Assert.IsFalse(machine.RegisterGoal(TeamSide.Home, GoalPoints));
             Assert.AreEqual(0, machine.HomeGoals);
         }
 
@@ -92,7 +93,7 @@ namespace Waterpulse.Tests.EditMode
         public void TimeUp_WithLeader_GoesToFullTimeThenResults()
         {
             StartPlaying();
-            machine.RegisterGoal(TeamSide.Away);
+            machine.RegisterGoal(TeamSide.Away, GoalPoints);
             machine.Tick(Delay + 0.01f);   // saque
             machine.Tick(Delay + 0.01f);   // juego
             machine.Tick(Duration);        // se acaba el tiempo
@@ -119,7 +120,7 @@ namespace Waterpulse.Tests.EditMode
         {
             StartPlaying();
             machine.Tick(Duration);
-            machine.RegisterGoal(TeamSide.Home);
+            machine.RegisterGoal(TeamSide.Home, GoalPoints);
             machine.Tick(Delay + 0.01f);
             Assert.AreEqual(MatchState.FullTime, machine.State);
             Assert.AreEqual(TeamSide.Home, machine.Winner);
@@ -129,11 +130,11 @@ namespace Waterpulse.Tests.EditMode
         public void GoalThatLevels_AtTheBuzzer_LeadsToGoldenGoal()
         {
             StartPlaying();
-            machine.RegisterGoal(TeamSide.Home);
+            machine.RegisterGoal(TeamSide.Home, GoalPoints);
             machine.Tick(Delay + 0.01f);   // saque del visitante
             machine.Tick(Delay + 0.01f);   // juego
             machine.Tick(Duration - 0.5f);
-            machine.RegisterGoal(TeamSide.Away);   // empate cuando quedan 0,5 s
+            machine.RegisterGoal(TeamSide.Away, GoalPoints);   // empate cuando quedan 0,5 s
             machine.Tick(0.5f);                    // el reloj está parado: no se agota
             Assert.IsFalse(machine.IsGoldenGoal);
             machine.Tick(Delay);                   // saque
@@ -141,10 +142,48 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
+        public void Winner_IsWhoHasMorePoints_NotMoreGoals()
+        {
+            StartPlaying();
+            machine.RegisterGoal(TeamSide.Home, 100);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.RegisterGoal(TeamSide.Home, 100);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.RegisterGoal(TeamSide.Away, 300);   // un súper gol con multiplicador vale más que dos goles
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Duration);
+            Assert.AreEqual(2, machine.HomeGoals);
+            Assert.AreEqual(1, machine.AwayGoals);
+            Assert.AreEqual(MatchState.FullTime, machine.State);
+            Assert.AreEqual(TeamSide.Away, machine.Winner);
+        }
+
+        [Test]
+        public void SamePoints_WithDifferentGoals_IsADraw_AndGoesToGoldenGoal()
+        {
+            StartPlaying();
+            machine.RegisterGoal(TeamSide.Home, 200);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.RegisterGoal(TeamSide.Away, 100);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.RegisterGoal(TeamSide.Away, 100);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Delay + 0.01f);
+            machine.Tick(Duration);
+            Assert.IsTrue(machine.IsDraw);
+            Assert.IsTrue(machine.IsGoldenGoal);
+        }
+
+        [Test]
         public void EmitsStatesInOrder()
         {
             StartPlaying();
-            machine.RegisterGoal(TeamSide.Home);
+            machine.RegisterGoal(TeamSide.Home, GoalPoints);
             machine.Tick(Delay + 0.01f);
             CollectionAssert.AreEqual(
                 new[] { MatchState.Kickoff, MatchState.Playing, MatchState.GoalScored, MatchState.Kickoff },

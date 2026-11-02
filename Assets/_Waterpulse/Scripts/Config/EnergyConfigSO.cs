@@ -9,6 +9,8 @@ namespace Waterpulse.Config
         public float maxEnergy = 100f;
         [Tooltip("Energía con la que empieza cada jugador")]
         public float initialEnergy = 50f;
+        [Tooltip("Recarga sola por segundo (0 = solo con las recompensas). El porter la usa para el muro: 100 en ~60 s")]
+        public float passiveRechargePerSecond = 0f;
 
         [Header("Recompensas")]
         [Tooltip("Al pasador, por pase completado")]

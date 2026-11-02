@@ -13,6 +13,7 @@
         "Waterpulse.Audio",
         "Waterpulse.Editor",
         "UnityEngine.UI",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

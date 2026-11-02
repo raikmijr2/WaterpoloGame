@@ -51,6 +51,13 @@ namespace Waterpulse.Gameplay
         public int TeamAbilitiesUsed(TeamSide team) => stats.TeamAbilitiesUsed((int)team);
         public int TeamAbilitiesSucceeded(TeamSide team) => stats.TeamAbilitiesSucceeded((int)team);
         public PlayerController Mvp => tracker.Mvp() is int id && id >= 0 ? players[id] : null;
+        // Lo que vale ahora el próximo gol del equipo (×1 a ×3)
+        public float MultiplierOf(TeamSide team) => tracker.MultiplierOf((int)team);
+
+        // Puntos ganados o multiplicador cambiado (jugador null en MultiplierLost). Lo escuchan los avisos del HUD
+        public event System.Action<PlayerController, ScoreEvent> Scored;
+        // Cada gol con los puntos de partido que vale (equipo que marca, puntos). Lo escucha MatchFlow para el marcador
+        public event System.Action<TeamSide, int> GoalScored;
 
         void Awake()
         {
@@ -58,15 +65,21 @@ namespace Waterpulse.Gameplay
             {
                 Goal = config.goalPoints,
                 AbilityGoalBonus = config.abilityGoalBonus,
-                ComboPassesRequired = config.comboPassesRequired,
-                ComboPassesBonus = config.comboPassesBonus,
                 Save = config.savePoints,
                 Interception = config.interceptionPoints,
                 Recovery = config.recoveryPoints,
                 Pass = config.passPoints,
-                ComboStep = config.comboStep,
-                ComboMax = config.comboMax,
+                PassMultiplier = config.passMultiplier,
+                RecoveryMultiplier = config.recoveryMultiplier,
+                MultiplierMax = config.multiplierMax,
+                ShortStreak = config.shortStreak,
+                ShortStreakBonus = config.shortStreakBonus,
+                LongStreak = config.longStreak,
+                LongStreakBonus = config.longStreakBonus,
+                CounterAttackWindow = config.counterAttackWindow,
+                CounterAttackBonus = config.counterAttackBonus,
             });
+            tracker.Scored += e => Scored?.Invoke(e.Player >= 0 ? players[e.Player] : null, e);
             stats = new MatchStats();
 
             // Orden fijo para la pantalla final: equipo y después rol
@@ -130,32 +143,38 @@ namespace Waterpulse.Gameplay
         void OnInterception(GameObject interceptor, GameObject passer)
         {
             if (!TryId(interceptor, out int id)) return;
-            tracker.OnInterception(id);
+            tracker.OnInterception(id, Time.time);
             stats.OnRecovery(id);
         }
 
         void OnBallRecovered(GameObject player)
         {
             if (!TryId(player, out int id)) return;
-            tracker.OnRecovery(id);
+            tracker.OnRecovery(id, Time.time);
             stats.OnRecovery(id);
         }
 
         void OnSave(GameObject goalkeeper)
         {
             if (!TryId(goalkeeper, out int id)) return;
-            tracker.OnSave(id);
+            tracker.OnSave(id, Time.time);
             stats.OnSave(id);
         }
 
-        // En propia puerta no hay puntos ni gol para nadie. Con el Xut del Tràngol: extra y habilidad con éxito
+        // En propia puerta no hay puntos para ningún jugador, y al equipo le vale el gol base (sin multiplicador).
+        // Con el Xut del Tràngol: extra y habilidad con éxito
         void OnGoal(TeamSide scoringTeam, GameObject scorer)
         {
-            if (!TryId(scorer, out int id) || players[id].Team != scoringTeam) return;
+            if (!TryId(scorer, out int id) || players[id].Team != scoringTeam)
+            {
+                GoalScored?.Invoke(scoringTeam, config.goalPoints);
+                return;
+            }
             bool withAbility = ball.IsSpecialShot && ball.LastToucher == players[id];
-            tracker.OnGoal(id, withAbility);
+            int matchPoints = tracker.OnGoal(id, withAbility, Time.time);
             stats.OnGoal(id);
             if (withAbility) stats.OnAbilitySucceeded(id);
+            GoalScored?.Invoke(scoringTeam, matchPoints);
         }
 
         void OnAbilityUsed(GameObject player, string abilityName)

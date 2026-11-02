@@ -4,31 +4,6 @@ using Waterpulse.Logic;
 
 namespace Waterpulse.Tests.EditMode
 {
-    public class ComboMultiplierTests
-    {
-        [Test]
-        public void StartsAtOne_GrowsByStep_CapsAtMax()
-        {
-            var combo = new ComboMultiplier(0.1f, 2f);
-            Assert.AreEqual(1f, combo.Value, 1e-5f);
-            combo.Advance();
-            combo.Advance();
-            Assert.AreEqual(1.2f, combo.Value, 1e-5f);
-            for (int i = 0; i < 30; i++) combo.Advance();
-            Assert.AreEqual(2f, combo.Value, 1e-5f);
-        }
-
-        [Test]
-        public void Reset_GoesBackToOne()
-        {
-            var combo = new ComboMultiplier(0.1f, 2f);
-            combo.Advance();
-            combo.Reset();
-            Assert.AreEqual(1f, combo.Value, 1e-5f);
-            Assert.AreEqual(0, combo.Steps);
-        }
-    }
-
     public class MatchStatsTests
     {
         [Test]

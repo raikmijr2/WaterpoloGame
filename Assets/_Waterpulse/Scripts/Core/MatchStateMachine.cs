@@ -3,7 +3,9 @@ using System;
 namespace Waterpulse.Core
 {
     // Flujo del partido (lógica pura): Kickoff → Playing → GoalScored → Kickoff … → FullTime → Results.
-    // El reloj solo corre en Playing. Si al acabar el tiempo hay empate, se juega a gol de oro
+    // El reloj solo corre en Playing. Gana quien tiene más puntos de gol (cada gol vale lo que dé la puntuación:
+    // base × multiplicador y contraataque; decidido por el usuario). Si al acabar el tiempo hay empate a puntos,
+    // se juega a gol de oro
     public class MatchStateMachine
     {
         public struct Settings
@@ -23,8 +25,10 @@ namespace Waterpulse.Core
         public TeamSide KickoffTeam { get; private set; }
         public int HomeGoals { get; private set; }
         public int AwayGoals { get; private set; }
-        public bool IsDraw => HomeGoals == AwayGoals;
-        public TeamSide Winner => HomeGoals >= AwayGoals ? TeamSide.Home : TeamSide.Away;
+        public int HomePoints { get; private set; }
+        public int AwayPoints { get; private set; }
+        public bool IsDraw => HomePoints == AwayPoints;
+        public TeamSide Winner => HomePoints >= AwayPoints ? TeamSide.Home : TeamSide.Away;
 
         public event Action<MatchState> StateChanged;
         public event Action GoldenGoalStarted;
@@ -36,15 +40,24 @@ namespace Waterpulse.Core
         }
 
         public int GoalsOf(TeamSide team) => team == TeamSide.Home ? HomeGoals : AwayGoals;
+        public int PointsOf(TeamSide team) => team == TeamSide.Home ? HomePoints : AwayPoints;
 
         public void Begin(TeamSide firstKickoff) => EnterKickoff(firstKickoff);
 
-        // Solo cuenta en Playing. Devuelve true si el gol se ha registrado
-        public bool RegisterGoal(TeamSide scoringTeam)
+        // Gol que vale "points" puntos de partido. Solo cuenta en Playing. Devuelve true si el gol se ha registrado
+        public bool RegisterGoal(TeamSide scoringTeam, int points)
         {
             if (State != MatchState.Playing) return false;
-            if (scoringTeam == TeamSide.Home) HomeGoals++;
-            else AwayGoals++;
+            if (scoringTeam == TeamSide.Home)
+            {
+                HomeGoals++;
+                HomePoints += points;
+            }
+            else
+            {
+                AwayGoals++;
+                AwayPoints += points;
+            }
             Timer.Pause();
             KickoffTeam = scoringTeam.Opponent();
             Enter(MatchState.GoalScored, settings.GoalDelay);

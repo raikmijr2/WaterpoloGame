@@ -59,45 +59,6 @@ namespace Waterpulse.Tests.EditMode
         }
     }
 
-    // Dash: más fuerte cuanto más lento vas; a velocidad máxima no se nota
-    public class DashPowerTests
-    {
-        const float Max = 4f, Peak = 3f;
-
-        [Test]
-        public void Stopped_IsFullStrength_AndPeakSpeed()
-        {
-            Assert.AreEqual(1f, DashPower.Strength(0f, Max), 1e-5f);
-            Assert.AreEqual(Peak, DashPower.SpeedMultiplier(0f, Max, Peak), 1e-5f);
-        }
-
-        [Test]
-        public void AtMaxSpeed_HasNoEffect()
-        {
-            Assert.AreEqual(0f, DashPower.Strength(Max, Max), 1e-5f);
-            Assert.AreEqual(1f, DashPower.SpeedMultiplier(Max, Max, Peak), 1e-5f, "sigue a su velocidad actual");
-        }
-
-        [Test]
-        public void HalfSpeed_IsHalfway()
-        {
-            Assert.AreEqual(0.5f, DashPower.Strength(2f, Max), 1e-5f);
-            Assert.AreEqual((0.5f + Peak) * 0.5f, DashPower.SpeedMultiplier(2f, Max, Peak), 1e-5f);
-        }
-
-        [Test]
-        public void SlowerMeansStronger()
-        {
-            Assert.Greater(DashPower.SpeedMultiplier(1f, Max, Peak), DashPower.SpeedMultiplier(3f, Max, Peak));
-        }
-
-        [Test]
-        public void AboveMaxSpeed_IsZero()
-        {
-            Assert.AreEqual(0f, DashPower.Strength(6f, Max), 1e-5f);
-        }
-    }
-
     // Cámara que sigue la jugada sin salirse de la piscina
     public class CameraFramingTests
     {

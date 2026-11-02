@@ -10,9 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ef44c8af3ab46f439340083a90d0c8e, type: 3}
-  m_Name: Difficulty_Competidor
+  m_Name: Difficulty_Facil
   m_EditorClassIdentifier: Waterpulse.Config::Waterpulse.Config.DifficultySO
-  displayName: Competidor
-  reactionTime: 0.35
-  aggressiveness: 0.6
-  rivalSpeedMultiplier: 1
+  displayName: "F\xE0cil"
+  reactionTime: 0.6
+  aggressiveness: 0.3
+  rivalSpeedMultiplier: 0.85
+  useAbilities: 0
+  shotGreenChance: 0.25
+  shotMissMinFill: 0.4
+  showControlHints: 1

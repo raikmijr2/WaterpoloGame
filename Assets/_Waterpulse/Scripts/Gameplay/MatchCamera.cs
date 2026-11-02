@@ -5,7 +5,8 @@ using Waterpulse.Core;
 namespace Waterpulse.Gameplay
 {
     // Cámara inclinada que sigue la pelota con suavizado y algo de adelanto hacia la portería que ataca
-    // el equipo con la pelota. Encuadra un trozo del campo (no todo) y nunca se sale de la piscina
+    // el equipo con la pelota. Si el humano lleva al portero (E), sigue al portero. Encuadra un trozo del campo
+    // (no todo) y nunca se sale de la piscina
     [RequireComponent(typeof(Camera))]
     public class MatchCamera : MonoBehaviour
     {
@@ -18,6 +19,7 @@ namespace Waterpulse.Gameplay
         Vector3 focusVelocity;
         bool snapped;
         GameObject controlled;
+        PlayerController controlledKeeper;   // el portero, si es lo que lleva el humano
         float shakeTimer;
 
         void Awake() => cam = GetComponent<Camera>();
@@ -34,7 +36,12 @@ namespace Waterpulse.Gameplay
             GameEvents.RecoverFailed -= OnRecoverFailed;
         }
 
-        void OnControlledChanged(GameObject player) => controlled = player;
+        void OnControlledChanged(GameObject player)
+        {
+            controlled = player;
+            var p = player != null ? player.GetComponent<PlayerController>() : null;
+            controlledKeeper = p != null && p.IsGoalkeeper ? p : null;
+        }
 
         // Temblor pequeño cuando el humano falla un robo con J (no con los de la IA)
         void OnRecoverFailed(GameObject player)
@@ -84,14 +91,23 @@ namespace Waterpulse.Gameplay
 
         float Distance() => CameraFraming.DistanceForViewLength(config.cameraViewLength, config.cameraFieldOfView, cam.aspect);
 
-        // La pelota, adelantada hacia donde ataca quien la tiene, sin enseñar más allá del campo
+        // La pelota, adelantada hacia donde ataca quien la tiene, sin enseñar más allá del campo.
+        // Llevando al portero, el portero (sin adelanto: así se ve su portería y lo que le llega)
         Vector3 Target()
         {
-            float lead = ball.HasPossession(TeamSide.Home) ? TeamSide.Home.AttackSign()
-                       : ball.HasPossession(TeamSide.Away) ? TeamSide.Away.AttackSign() : 0f;
-            // La posición dibujada (interpolada) de la pelota, no la física: esa solo cambia en cada paso de física
-            // (50 por segundo) y la cámara iría a saltos haciendo temblar toda la imagen
-            Vector3 target = ball.transform.position + Vector3.right * (lead * config.cameraLead);
+            Vector3 target;
+            if (controlledKeeper != null)
+            {
+                target = controlledKeeper.transform.position;
+            }
+            else
+            {
+                float lead = ball.HasPossession(TeamSide.Home) ? TeamSide.Home.AttackSign()
+                           : ball.HasPossession(TeamSide.Away) ? TeamSide.Away.AttackSign() : 0f;
+                // La posición dibujada (interpolada) de la pelota, no la física: esa solo cambia en cada paso de física
+                // (50 por segundo) y la cámara iría a saltos haciendo temblar toda la imagen
+                target = ball.transform.position + Vector3.right * (lead * config.cameraLead);
+            }
             target.y = pool.WaterY;
 
             float distance = Distance();

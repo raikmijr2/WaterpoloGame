@@ -22,6 +22,10 @@ namespace Waterpulse.EditorTools
         public const string Chevron = "icon_chevron";   // flecha hacia abajo sobre quien lleva la pelota
         public const string Corner = "corner";          // esquina de las marcas del destino del pase o del cambio
         public const string ControlArcs = "control_arcs";   // tres arcos y una punta en el agua bajo el jugador controlado
+        public const string Circle = "circle";             // botones táctiles y mando del joystick
+        public const string CircleRing = "circle_ring";    // base del joystick táctil
+        public const string Reticle = "reticle";           // punto de mira del tiro: aro con cuatro marcas y un punto
+        public const string FxDrop = "fx_drop";             // gota/espuma de las partículas de agua: círculo de borde suave
         const int Supersample = 4;                   // muestras por lado de cada píxel (bordes suaves)
         const float CornerRadius = 16f;
         const float RingThickness = 3f;
@@ -37,6 +41,7 @@ namespace Waterpulse.EditorTools
             public int Size;
             public int Border;                               // 9-slice (0 = no se estira)
             public Func<float, float, bool> Inside;          // punto (x, y) en píxeles, y hacia arriba
+            public Func<float, float, float> Alpha;          // opcional: transparencia 0-1 en lugar de Inside (bordes suaves)
         }
 
         static readonly Shape[] Shapes =
@@ -50,6 +55,10 @@ namespace Waterpulse.EditorTools
             new Shape { Name = Chevron, Size = 64, Inside = (x, y) => InPolygon(x, y, ChevronPoints) },
             new Shape { Name = Corner, Size = 32, Inside = (x, y) => x <= CornerThickness || y >= 32f - CornerThickness },
             new Shape { Name = ControlArcs, Size = 256, Inside = OnControlArcs },
+            new Shape { Name = FxDrop, Size = 64, Alpha = SoftDot },
+            new Shape { Name = Reticle, Size = 128, Inside = OnReticle },
+            new Shape { Name = Circle, Size = 128, Inside = (x, y) => new Vector2(x - 64f, y - 64f).magnitude <= 62f },
+            new Shape { Name = CircleRing, Size = 256, Inside = (x, y) => new Vector2(x - 128f, y - 128f).magnitude is float r && r <= 126f && r >= 118f },
         };
 
         static readonly Vector2[] BoltPoints = { new Vector2(40f, 62f), new Vector2(14f, 29f), new Vector2(30f, 29f), new Vector2(21f, 2f), new Vector2(51f, 37f), new Vector2(35f, 37f), new Vector2(53f, 62f) };
@@ -116,11 +125,19 @@ namespace Waterpulse.EditorTools
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)
             {
-                int hits = 0;
-                for (int sy = 0; sy < Supersample; sy++)
-                for (int sx = 0; sx < Supersample; sx++)
-                    if (shape.Inside(x + (sx + 0.5f) / Supersample, y + (sy + 0.5f) / Supersample)) hits++;
-                byte alpha = (byte)Mathf.RoundToInt(255f * hits / (Supersample * Supersample));
+                byte alpha;
+                if (shape.Alpha != null)
+                {
+                    alpha = (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(shape.Alpha(x + 0.5f, y + 0.5f)));
+                }
+                else
+                {
+                    int hits = 0;
+                    for (int sy = 0; sy < Supersample; sy++)
+                    for (int sx = 0; sx < Supersample; sx++)
+                        if (shape.Inside(x + (sx + 0.5f) / Supersample, y + (sy + 0.5f) / Supersample)) hits++;
+                    alpha = (byte)Mathf.RoundToInt(255f * hits / (Supersample * Supersample));
+                }
                 pixels[y * n + x] = new Color32(255, 255, 255, alpha);
             }
             var texture = new Texture2D(n, n, TextureFormat.RGBA32, false);
@@ -150,6 +167,23 @@ namespace Waterpulse.EditorTools
                 if ((a.y > y) != (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inside = !inside;
             }
             return inside;
+        }
+
+        // Aro de radio 34 px con cuatro marcas hacia fuera y un punto en el centro (textura de 128 px)
+        static bool OnReticle(float x, float y)
+        {
+            float dx = x - 64f, dy = y - 64f, r = Mathf.Sqrt(dx * dx + dy * dy);
+            if (r <= 4f || Mathf.Abs(r - 34f) <= 2.5f) return true;
+            bool tickX = Mathf.Abs(dy) <= 2.5f && Mathf.Abs(dx) >= 44f && Mathf.Abs(dx) <= 60f;
+            bool tickY = Mathf.Abs(dx) <= 2.5f && Mathf.Abs(dy) >= 44f && Mathf.Abs(dy) <= 60f;
+            return tickX || tickY;
+        }
+
+        // Círculo opaco en el centro que se desvanece hacia el borde (gotas y espuma)
+        static float SoftDot(float x, float y)
+        {
+            float d = new Vector2(x - 32f, y - 32f).magnitude / 30f;   // 0 en el centro, 1 en el borde
+            return 1f - Mathf.SmoothStep(0.35f, 1f, d);
         }
 
         // Tres arcos alrededor del centro con un hueco delante (arriba), a 120° entre sí, y una punta en el hueco de delante
