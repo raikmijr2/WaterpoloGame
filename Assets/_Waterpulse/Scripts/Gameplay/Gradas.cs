@@ -16,6 +16,9 @@ public class Gradas : MonoBehaviour
     public int rows = 8;
     public float rowDepth = 0.9f, rowRise = 0.45f, baseHeight = 1f;
     public Material standsMaterial;        // optional; grey default material if empty
+    // Material (URP Lit) del que se copian los colores. Hace falta en el build: allí el material por defecto
+    // del pipeline no existe (solo en el editor) y sin él no se montaban ni las gradas ni el público
+    public Material baseMaterial;
 
     [Header("Público")]
     public float seatSpacing = 0.6f;
@@ -184,10 +187,11 @@ public class Gradas : MonoBehaviour
     }
 
     // the active pipeline's own default lit material (URP or Built-in), recoloured
-    static Material DefaultMaterial(Color color)
+    Material DefaultMaterial(Color color)
     {
         var rp = GraphicsSettings.currentRenderPipeline;
-        var m = rp != null ? new Material(rp.defaultMaterial) : new Material(Shader.Find("Standard"));
+        var source = baseMaterial != null ? baseMaterial : rp != null ? rp.defaultMaterial : null;
+        var m = source != null ? new Material(source) : new Material(Shader.Find(rp != null ? "Universal Render Pipeline/Lit" : "Standard"));
         m.color = color;
         m.hideFlags = HideFlags.DontSave;
         return m;

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ca">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <!--
+      Plantilla Web de Waterpulse: el juego ocupa siempre todo el espacio que tiene (la ventana, el marco de itch.io
+      o la pantalla completa) y Unity ajusta la resolución a ese tamaño. Mismo aspecto que el index.html local
+      del concurso (WebLocalBuilder). Se elige en Player Settings > Web > Resolution and Presentation > WebGL Template
+    -->
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0f15; }
+      #unity-canvas { width: 100%; height: 100%; display: block; background: #0a0f15; touch-action: none; outline: none; }
+      #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+                 color: #e7eef4; font: 600 20px system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+      #bar { width: min(320px, 70vw); height: 6px; background: #22313f; }
+      #fill { width: 0; height: 100%; background: #d4ff3f; }
+      #warning { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); max-width: 90vw; display: none;
+                 color: #0a0f15; font: 600 14px system-ui, sans-serif; }
+      #warning div { padding: 8px 12px; margin-bottom: 6px; background: #d4ff3f; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="loading"><div>Carregant…</div><div id="bar"><div id="fill"></div></div></div>
+    <div id="warning"></div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      // Avisos de Unity: los de error se quedan, los demás se van a los 5 s
+      function unityShowBanner(msg, type) {
+        var banner = document.querySelector("#warning");
+        var div = document.createElement("div");
+        div.textContent = msg;
+        if (type == "error") div.style.background = "#ff6b5a";
+        banner.appendChild(div);
+        banner.style.display = "block";
+        if (type != "error") setTimeout(function () {
+          banner.removeChild(div);
+          if (!banner.children.length) banner.style.display = "none";
+        }, 5000);
+      }
+
+      var buildUrl = "Build";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner: unityShowBanner,
+        matchWebGLToCanvasSize: true,
+      };
+
+      // El teclado solo llega al juego si tiene el foco: al tocarlo o hacer clic, se lo damos
+      canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+
+      var script = document.createElement("script");
+      script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          document.querySelector("#fill").style.width = (100 * progress) + "%";
+        }).then(function () {
+          document.querySelector("#loading").remove();
+        }).catch(function (message) {
+          document.querySelector("#loading").firstChild.textContent = "Error: " + message;
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

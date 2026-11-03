@@ -401,6 +401,22 @@ namespace Waterpulse.EditorTools
             stands.length = c.poolLength - 2f * stands.gap + 2f * StandsClearance;
             stands.width = c.poolWidth - 2f * stands.gap + 2f * StandsClearance;
             stands.baseHeight = StandsBaseHeight;
+            stands.baseMaterial = StandsBaseMaterial();
+        }
+
+        // Material URP Lit blanco del que Gradas copia sus colores; como asset, entra en el build
+        static Material StandsBaseMaterial()
+        {
+            string path = MaterialDir + "/Stands.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.SetColor("_BaseColor", Color.white);
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         // Malla plana de 1×1 m subdividida en WaterGridX × WaterGridZ cuadros (para que se vean las onadas del shader).
