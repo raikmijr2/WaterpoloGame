@@ -72,6 +72,8 @@ namespace Waterpulse.Gameplay
         public float ShotAim => shotAim;
         // Quieto mientras pasa (saltito) o carga el tiro
         public bool IsBusy => IsChargingShot || pendingThrow != PendingThrow.None || freezeTimer > 0f;
+        // Lleva la pelota en la mano (cargando el tiro o hasta soltarla en el pase o el tiro). Si no, la empuja nadando
+        public bool BallInHand => IsChargingShot || pendingThrow != PendingThrow.None;
         // Velocidad respecto a la máxima (0 = quieto, 1 = máxima; más durante un acelerón)
         public float SpeedRatio => config.maxSpeed > 0f ? FlatSpeed() / config.maxSpeed : 0f;
         // Hay un modelo animado que avisará con ReleaseBall (lo registra PlayerAnimator)

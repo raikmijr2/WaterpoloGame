@@ -55,8 +55,8 @@ namespace Waterpulse.Config
         public float shotPostMargin = 0.3f;
 
         [Header("Barra de tiro (K para empezar a cargar, K otra vez para tirar)")]
-        [Tooltip("Tiempo que tarda la barra en llenarse (s). Si se llena entera, tira solo con la peor calidad")]
-        public float shotMeterDuration = 1f;
+        [Tooltip("Tiempo de juego que tarda la barra en llenarse (s; va con la cámara lenta, así que en tiempo real es esto / shotSlowMotionScale). Si se llena entera, tira solo con la peor calidad")]
+        public float shotMeterDuration = 0.4f;
         [Tooltip("Inicio de la zona verde (0-1 de la barra)")]
         [Range(0f, 1f)] public float shotGreenStart = 0.85f;
         [Tooltip("Ancho de la zona verde (0-1 de la barra)")]
@@ -206,12 +206,20 @@ namespace Waterpulse.Config
         public Vector3 playerModelOffset = new Vector3(0f, -0.825f, 0f);
         [Tooltip("Escala del modelo")]
         public float playerModelScale = 1.5f;
-        [Tooltip("Hueso de la mano en la que el modelo lleva la pelota (solo visual)")]
+        [Tooltip("Hueso de la mano en la que el modelo coge la pelota para pasar o tirar (solo visual)")]
         public HumanBodyBones ballHandBone = HumanBodyBones.RightHand;
         [Tooltip("Posición de la pelota respecto al hueso de la mano, en sus ejes (m). Para dejarla en la palma")]
         public Vector3 ballHandOffset = new Vector3(0f, 0.1f, 0f);
         [Tooltip("Tiempo en que la pelota visible pasa de la mano a su trayectoria al soltarla (s)")]
         public float ballReleaseBlendTime = 0.1f;
+        [Tooltip("Tiempo en que la pelota visible sube del agua a la mano al empezar a pasar o a cargar el tiro (s)")]
+        public float ballGrabBlendTime = 0.1f;
+        [Tooltip("Distancia delante del jugador a la que se ve la pelota mientras la empuja nadando (m, solo visual). Para dejarla delante de la cara")]
+        public float ballDribbleDistance = 0.6f;
+        [Tooltip("Vaivén adelante y atrás de la pelota empujada a velocidad máxima (m, solo visual). Parado no se mueve")]
+        public float ballDribbleSurge = 0.08f;
+        [Tooltip("Vaivenes por segundo de la pelota empujada")]
+        public float ballDribbleSurgeFrequency = 2.5f;
 
         [Header("Piscina (requiere regenerar la escena)")]
         [Tooltip("Largo del campo, de portería a portería (m)")]
