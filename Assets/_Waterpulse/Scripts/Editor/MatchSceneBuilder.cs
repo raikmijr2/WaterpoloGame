@@ -39,6 +39,8 @@ namespace Waterpulse.EditorTools
         public const string UsersConfigPath = RootDir + "/Config/UsersConfig.asset";
         public const string DefaultPlayerModelPath = RootDir + "/Prefabs/Waterpolo_TreadingWater.prefab";
         public const string DefaultEnemyModelPath = RootDir + "/Prefabs/WaterpoloEnemy.prefab";
+        public const string DefaultHomeGoalkeeperModelPath = RootDir + "/Prefabs/Waterpolo_GoalSave.prefab";
+        public const string DefaultAwayGoalkeeperModelPath = RootDir + "/Prefabs/Waterpolo_GoalSave 1.prefab";
         internal const string MaterialDir = RootDir + "/Art/Materials";
 
         // Medidas puramente visuales de la escena (no afectan a la jugabilidad)
@@ -662,7 +664,7 @@ namespace Waterpulse.EditorTools
             // Visual: los jugadores de campo llevan el modelo animado de su equipo (si existe); los porteros, cápsulas
             var visual = new GameObject("Visual").transform;
             visual.SetParent(go.transform, false);
-            var model = role != PlayerRole.Goalkeeper ? PlayerModel(c, team) : null;
+            var model = PlayerModel(c, team, role);
             if (model != null)
             {
                 AddPlayerModel(c, model, visual, go.GetComponent<PlayerController>());
@@ -678,11 +680,19 @@ namespace Waterpulse.EditorTools
             return go;
         }
 
-        public static GameObject PlayerModel(GameConfigSO c, TeamSide team)
+        // Modelo de cada jugador: el del config o, si está vacío, el prefab por defecto (null = cápsula)
+        public static GameObject PlayerModel(GameConfigSO c, TeamSide team, PlayerRole role)
         {
-            var configured = team == TeamSide.Home ? c.homePlayerModel : c.awayPlayerModel;
+            bool home = team == TeamSide.Home;
+            if (role == PlayerRole.Goalkeeper)
+            {
+                var keeper = home ? c.homeGoalkeeperModel : c.awayGoalkeeperModel;
+                if (keeper != null) return keeper;
+                return AssetDatabase.LoadAssetAtPath<GameObject>(home ? DefaultHomeGoalkeeperModelPath : DefaultAwayGoalkeeperModelPath);
+            }
+            var configured = home ? c.homePlayerModel : c.awayPlayerModel;
             if (configured != null) return configured;
-            return AssetDatabase.LoadAssetAtPath<GameObject>(team == TeamSide.Home ? DefaultPlayerModelPath : DefaultEnemyModelPath);
+            return AssetDatabase.LoadAssetAtPath<GameObject>(home ? DefaultPlayerModelPath : DefaultEnemyModelPath);
         }
 
         // Modelo animado dentro de "Visual" (así el saltito del pase y la subida del tiro también lo mueven)

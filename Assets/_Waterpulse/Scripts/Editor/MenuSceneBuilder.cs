@@ -33,12 +33,10 @@ namespace Waterpulse.EditorTools
         static readonly Vector2 LogoOutline = new Vector2(4f, -4f);
         const float LogoUnderlineWidth = 2.7f;     // respecto al tamaño de letra del logo: algo más de la mitad del texto
         const float LogoUnderlineHeight = 0.045f;
-        static readonly Vector2 BadgeSize = new Vector2(140f, 44f);
         static readonly Vector2 UserCellSize = new Vector2(500f, 70f);
         static readonly Vector2 UserCellSpacing = new Vector2(40f, 12f);
         const float UserDeleteGap = 10f;
         const int MainButtonFont = 46;
-        const float BadgeTilt = 8f;
         const float RankingLineSpacing = 1.1f;
         // Pabellón del fondo del menú (m)
         const float HallMargin = 4f;          // de la vuelta de la cámara a las paredes
@@ -60,8 +58,6 @@ namespace Waterpulse.EditorTools
 
         // Colores propios del menú (el resto son los de UiFactory y SharedPages, compartidos con el partido)
         static readonly Color ShadeColor = new Color(0.02f, 0.07f, 0.15f, 0.45f);   // oscurece la piscina para que se lea el texto
-        static readonly Color DisabledText = new Color(0.75f, 0.78f, 0.82f);
-        static readonly Color BadgeText = new Color(0.05f, 0.1f, 0.25f);
         static readonly Color ErrorColor = new Color(1f, 0.55f, 0.45f);
         static readonly Color CameraBackground = new Color(0.12f, 0.16f, 0.2f);   // el mismo que la cámara del partido
 
@@ -217,19 +213,15 @@ namespace Waterpulse.EditorTools
             var deleteUser = Confirm(deleteUserPage.transform, BoxAnchor, string.Empty, "També s'esborrarà el seu rècord. No es pot desfer.");
             MakeDanger(deleteUser.Yes);
 
-            // Principal: jugador actual, partido individual, 1 contra 1 local (se ve, pero el modo aún no existe),
-            // rànquing, opciones y cambiar de usuario
+            // Principal: jugador actual, partido individual, rànquing, opciones y cambiar de usuario
+            // (el 1 contra 1 local se quitó del menú hasta que exista el modo)
             var mainPage = StretchedGroup(root, "MainPage");
             var playerLabel = Label(mainPage.transform, "PlayerLabel", 40, Top, new Vector2(0f, -265f), new Vector2(1200f, 56f));
             playerLabel.color = Volt;
-            var singlePlayer = MenuButton<Button>(mainPage.transform, "SinglePlayerButton", "Partit individual", MainButtonFont, Middle, new Vector2(0f, 150f), MainButtonSize);
-            var versus = MenuButton<Button>(mainPage.transform, "LocalVersusButton", "1 contra 1 local", MainButtonFont, Middle, new Vector2(0f, 40f), MainButtonSize);
-            versus.interactable = false;
-            versus.GetComponentInChildren<Text>().color = DisabledText;
-            Badge(versus.transform, "Aviat");
-            var rankingButton = MenuButton<Button>(mainPage.transform, "RankingButton", "Rànquing", MainButtonFont, Middle, new Vector2(0f, -70f), MainButtonSize);
-            var optionsButton = MenuButton<Button>(mainPage.transform, "OptionsButton", "Opcions", MainButtonFont, Middle, new Vector2(0f, -180f), MainButtonSize);
-            var changeUser = MenuButton<Button>(mainPage.transform, "ChangeUserButton", "Canviar d'usuari", MainButtonFont, Middle, new Vector2(0f, -290f), MainButtonSize);
+            var singlePlayer = MenuButton<Button>(mainPage.transform, "SinglePlayerButton", "Partit individual", MainButtonFont, Middle, new Vector2(0f, 95f), MainButtonSize);
+            var rankingButton = MenuButton<Button>(mainPage.transform, "RankingButton", "Rànquing", MainButtonFont, Middle, new Vector2(0f, -15f), MainButtonSize);
+            var optionsButton = MenuButton<Button>(mainPage.transform, "OptionsButton", "Opcions", MainButtonFont, Middle, new Vector2(0f, -125f), MainButtonSize);
+            var changeUser = MenuButton<Button>(mainPage.transform, "ChangeUserButton", "Canviar d'usuari", MainButtonFont, Middle, new Vector2(0f, -235f), MainButtonSize);
 
             // Rànquing: posición, nombre y puntos en tres columnas
             var rankingPage = StretchedGroup(root, "RankingPage");
@@ -391,25 +383,6 @@ namespace Waterpulse.EditorTools
             var subtitle = Label(parent, "Subtitle", size, anchor, position, new Vector2(1200f, size * 1.5f));
             subtitle.text = "WATERPOLO ARCADE";
             subtitle.color = SoftText;
-        }
-
-        // Etiqueta volt, un poco inclinada, en la esquina de un botón
-        static void Badge(Transform button, string text)
-        {
-            var go = new GameObject("Badge", typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(button, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = Vector2.one;
-            rt.anchoredPosition = new Vector2(-BadgeSize.x * 0.5f, 0f);
-            rt.sizeDelta = BadgeSize;
-            rt.localRotation = Quaternion.Euler(0f, 0f, -BadgeTilt);
-            var image = go.GetComponent<Image>();
-            image.color = Volt;
-            image.raycastTarget = false;
-            var label = Label(go.transform, "Label", 28, Middle, Vector2.zero, BadgeSize);
-            label.text = text;
-            label.color = BadgeText;
-            Object.DestroyImmediate(label.GetComponent<Outline>());   // texto oscuro sobre volt: sin contorno
         }
     }
 }

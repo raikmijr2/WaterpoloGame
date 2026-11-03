@@ -304,7 +304,7 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_ModelsOnFieldPlayersOnly()
+        public void Build_ModelsWhereConfigured()
         {
             MatchSceneBuilder.Build();
 
@@ -312,8 +312,8 @@ namespace Waterpulse.Tests.EditMode
             foreach (var p in Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
             {
                 var animator = p.GetComponentInChildren<PlayerAnimator>();
-                bool expected = !p.IsGoalkeeper && MatchSceneBuilder.PlayerModel(config, p.Team) != null;
-                Assert.AreEqual(expected, animator != null, p.name + " modelo animado (solo los de campo con modelo de su equipo)");
+                bool expected = MatchSceneBuilder.PlayerModel(config, p.Team, p.Role) != null;
+                Assert.AreEqual(expected, animator != null, p.name + " modelo animado (los que tienen modelo; el resto, cápsulas)");
                 if (animator != null) AssertRef(animator, "player", p);
             }
         }

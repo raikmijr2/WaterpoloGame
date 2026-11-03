@@ -202,6 +202,10 @@ namespace Waterpulse.Config
         public GameObject homePlayerModel;
         [Tooltip("Prefab del equipo VISITANTE. Vacío = el de Prefabs/WaterpoloEnemy; si no existe, cápsulas")]
         public GameObject awayPlayerModel;
+        [Tooltip("Prefab del portero LOCAL (portería de la izquierda). Vacío = el de Prefabs/Waterpolo_GoalSave; si no existe, cápsula")]
+        public GameObject homeGoalkeeperModel;
+        [Tooltip("Prefab del portero VISITANTE (portería de la derecha). Vacío = el de Prefabs/Waterpolo_GoalSave 1; si no existe, cápsula")]
+        public GameObject awayGoalkeeperModel;
         [Tooltip("Posición del modelo respecto al jugador (m), para los dos equipos. Y negativa = más hundido en el agua")]
         public Vector3 playerModelOffset = new Vector3(0f, -0.825f, 0f);
         [Tooltip("Escala del modelo")]
@@ -252,7 +256,7 @@ namespace Waterpulse.Config
         public float staminaRegenPerSecond = 20f;
         public float dashCost = 30f;
         [Tooltip("Duración del impulso (s)")]
-        public float dashDuration = 0.12f;
+        public float dashDuration = 0.075f;
         [Tooltip("Velocidad del dash respecto a la máxima de nado. Siempre da este impulso, también yendo a tope (decidido por el usuario)")]
         public float dashSpeedMultiplier = 3f;
         [Tooltip("Espera mínima entre dashes (s)")]

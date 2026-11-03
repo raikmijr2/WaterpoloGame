@@ -98,14 +98,12 @@ namespace Waterpulse.Tests.EditMode
         }
 
         [Test]
-        public void Build_LocalVersusIsVisibleButDisabled()
+        public void Build_NoLocalVersusButton()
         {
             MenuSceneBuilder.Build();
 
-            var versus = Object.FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                               .Single(b => b.name == "LocalVersusButton");
-            Assert.IsFalse(versus.interactable, "el modo aún no existe");
-            Assert.IsTrue(versus.GetComponentsInChildren<Text>(true).Any(t => t.text == "Aviat"), "etiqueta Aviat");
+            var buttons = Object.FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Assert.IsFalse(buttons.Any(b => b.name == "LocalVersusButton"), "el 1 contra 1 no sale en el menú");
         }
 
         [Test]
