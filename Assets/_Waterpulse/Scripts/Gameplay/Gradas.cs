@@ -34,6 +34,7 @@ public class Gradas : MonoBehaviour
     };
 
     const int EggSides = 10, EggVerts = EggSides + 1;  // fan: centre + outline
+    const float MaxJumpBoost = 4f;                      // the culling box allows hops up to this many times jumpHeight
 
     GameObject standsGo, crowdGo;
     Mesh crowd;
@@ -45,10 +46,17 @@ public class Gradas : MonoBehaviour
     void OnValidate() => dirty = true;
     void OnDisable() => Clear();
 
+    // Celebración de un gol (GoalCelebration): saltan más alto y más rápido. 1 = normal
+    public float JumpBoost { get; set; } = 1f;
+    public float SpeedBoost { get; set; } = 1f;
+    float clock;   // tiempo de la animación: avanza más rápido con SpeedBoost sin dar saltos
+
     void Update()
     {
         if (dirty) Build();
-        if (Application.isPlaying) Animate(Time.time);
+        if (!Application.isPlaying) return;
+        clock += Time.deltaTime * SpeedBoost;
+        Animate(clock);
     }
 
     public void Animate(float t)
@@ -56,7 +64,7 @@ public class Gradas : MonoBehaviour
         if (crowd == null) return;
         for (int e = 0; e < phase.Length; e++)
         {
-            var dy = Vector3.up * (Mathf.Abs(Mathf.Sin(t * speed[e] + phase[e])) * jumpHeight);
+            var dy = Vector3.up * (Mathf.Abs(Mathf.Sin(t * speed[e] + phase[e])) * jumpHeight * JumpBoost);
             for (int j = e * EggVerts; j < (e + 1) * EggVerts; j++) verts[j] = baseVerts[j] + dy;
         }
         crowd.SetVertices(verts);
@@ -140,7 +148,7 @@ public class Gradas : MonoBehaviour
         for (int c = 0; c < colors.Length; c++) crowd.SetTriangles(ct[c], c);
         crowd.RecalculateNormals();
         crowd.RecalculateBounds();
-        var b = crowd.bounds; b.Expand(new Vector3(0, jumpHeight * 2, 0)); crowd.bounds = b;  // keep hops inside the culling box
+        var b = crowd.bounds; b.Expand(new Vector3(0, jumpHeight * 2 * MaxJumpBoost, 0)); crowd.bounds = b;  // keep hops (also the goal celebration's) inside the culling box
         var mats = new Material[colors.Length];
         for (int c = 0; c < colors.Length; c++) mats[c] = DefaultMaterial(colors[c]);
         crowdGo = Child("Publico", crowd, mats);

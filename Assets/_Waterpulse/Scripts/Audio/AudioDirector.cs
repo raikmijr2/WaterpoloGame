@@ -25,6 +25,8 @@ namespace Waterpulse.Audio
         AudioSource music;
         AudioSource ui;
         AudioSource comment;
+        AudioSource celebration;   // aplausos del gol, en su propio canal
+        float duckTimer;           // música bajada tras un gol
         CrossfadeLoop pool;
         CrossfadeLoop crowd;
         AudioSource[] voices;
@@ -45,6 +47,7 @@ namespace Waterpulse.Audio
             music = CreateSource("Music", true, true);
             ui = CreateSource("Interface", false, true);
             comment = CreateSource("Comment", false, false);
+            celebration = CreateSource("Celebration", false, false);
             pool = new CrossfadeLoop(CreateSource("Pool0", false, false), CreateSource("Pool1", false, false));
             crowd = new CrossfadeLoop(CreateSource("Crowd0", false, false), CreateSource("Crowd1", false, false));
             voices = new AudioSource[Mathf.Max(1, config.effectVoices)];
@@ -71,6 +74,7 @@ namespace Waterpulse.Audio
             GameEvents.BallBounced += OnBallBounced;
             GameEvents.AbilityUsed += OnAbilityUsed;
             GameEvents.AbilityNoEnergy += OnAbilityNoEnergy;
+            GameEvents.WallLanded += OnWallLanded;
             GameEvents.ControlledPlayerChanged += OnControlledChanged;
             GameEvents.PauseChanged += OnPauseChanged;
         }
@@ -93,6 +97,7 @@ namespace Waterpulse.Audio
             GameEvents.BallBounced -= OnBallBounced;
             GameEvents.AbilityUsed -= OnAbilityUsed;
             GameEvents.AbilityNoEnergy -= OnAbilityNoEnergy;
+            GameEvents.WallLanded -= OnWallLanded;
             GameEvents.ControlledPlayerChanged -= OnControlledChanged;
             GameEvents.PauseChanged -= OnPauseChanged;
             AudioListener.pause = false;   // si se sale de la escena desde la pausa, la siguiente no debe empezar muda
@@ -119,6 +124,11 @@ namespace Waterpulse.Audio
             pool.Update(config.ambienceCrossfade);
             crowd.Update(config.ambienceCrossfade);
             UpdateVoices();
+            if (duckTimer > 0f)
+            {
+                duckTimer -= Time.unscaledDeltaTime;
+                ApplyVolumes();
+            }
             if (!fadingOut) return;
             musicFade = config.musicFadeOut > 0f ? Mathf.Max(0f, musicFade - Time.unscaledDeltaTime / config.musicFadeOut) : 0f;
             ApplyVolumes();
@@ -144,12 +154,21 @@ namespace Waterpulse.Audio
 
         void ApplyVolumes()
         {
-            music.volume = config.musicLevel * AudioVolumes.Music * musicFade;
+            music.volume = config.musicLevel * AudioVolumes.Music * musicFade * MusicDuck();
+            celebration.volume = config.goalApplauseLevel * AudioVolumes.Effects;
             ui.volume = config.uiLevel * AudioVolumes.Effects;
             comment.volume = config.commentLevel * AudioVolumes.Effects;
             pool.SetLevel(config.poolLevel * AudioVolumes.Effects);
             crowd.SetLevel(config.crowdLevel * AudioVolumes.Effects);
             for (int i = 0; i < voices.Length; i++) ApplyVoiceVolume(i);
+        }
+
+        // Música bajada tras un gol: abajo del todo y, al final, vuelve poco a poco
+        float MusicDuck()
+        {
+            if (duckTimer <= 0f) return 1f;
+            float back = config.goalMusicDuckRecover > 0f ? Mathf.Clamp01(1f - duckTimer / config.goalMusicDuckRecover) : 1f;
+            return Mathf.Lerp(config.goalMusicDuck, 1f, back);
         }
 
         void ApplyVoiceVolume(int i) => voices[i].volume = config.effectsLevel * AudioVolumes.Effects * voiceGain[i];
@@ -197,6 +216,19 @@ namespace Waterpulse.Audio
             else rivalGoals++;
             Effect(config.whistleShort);   // el árbitro pita el gol
             CrowdReaction(ours ? config.crowdCheer : config.crowdOoh);
+            // Celebración: cañones de confeti (dos, si es nuestro), aplausos con fuegos y su crepitar
+            Effect(config.goalCannon);
+            if (ours)
+            {
+                Effect(config.goalCannon, true, config.goalSecondCannonDelay);
+                if (config.goalApplause != null)
+                {
+                    celebration.clip = config.goalApplause;
+                    celebration.Play();
+                }
+                duckTimer = config.goalMusicDuckDuration + config.goalMusicDuckRecover;
+                Effect(config.goalFireworks, true, config.goalFireworksDelay);
+            }
             Comment(config.goalComments);
         }
 
@@ -223,6 +255,13 @@ namespace Waterpulse.Audio
         void OnRecoverFailed(GameObject player) => Effect(config.stealFail);
         void OnDashUsed(GameObject player) => Effect(config.dash);
         void OnBallBounced() => Effect(config.bounce);
+
+        // Mur de Ferro: golpe metálico grave y esquitxada
+        void OnWallLanded(GameObject wall)
+        {
+            Effect(config.wallImpact, false, 0f, 0f, config.wallImpactPitch);
+            Effect(config.shotSplash);
+        }
 
         void OnAbilityUsed(GameObject player, string abilityName)
         {
@@ -252,13 +291,13 @@ namespace Waterpulse.Audio
 
         // Efecto en la siguiente voz, con un poco de variación de tono (no en lo que tiene melodía: jingles y bocina).
         // "delay" lo retrasa; "maxDuration" (> 0) lo apaga con un fundido al pasar ese tiempo
-        void Effect(AudioClip clip, bool varyPitch = true, float delay = 0f, float maxDuration = 0f)
+        void Effect(AudioClip clip, bool varyPitch = true, float delay = 0f, float maxDuration = 0f, float basePitch = 1f)
         {
             if (clip == null) return;
             int i = nextVoice;
             nextVoice = (nextVoice + 1) % voices.Length;
             var voice = voices[i];
-            voice.pitch = varyPitch ? 1f + Random.Range(-config.pitchVariation, config.pitchVariation) : 1f;
+            voice.pitch = basePitch * (varyPitch ? 1f + Random.Range(-config.pitchVariation, config.pitchVariation) : 1f);
             voice.clip = clip;
             voiceLimit[i] = maxDuration;
             voiceGain[i] = 1f;

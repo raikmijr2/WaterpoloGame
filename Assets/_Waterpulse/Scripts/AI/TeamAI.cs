@@ -8,7 +8,10 @@ namespace Waterpulse.AI
 {
     // Coordina a un equipo. Al defender, uno se encarga del poseedor y los demás marcan cada uno
     // a un atacante distinto (nunca al poseedor). En modo agresivo (rival) además uno va a por la
-    // pelota suelta y uno intenta cortar el pase. En modo pasivo (compañeros del humano) solo reparte marcajes
+    // pelota suelta, uno intenta cortar el pase y, cerca de su portería, un segundo defensor hace presión doble.
+    // En modo pasivo (compañeros del humano) solo reparte marcajes.
+    // Al atacar (los dos modos) reparte los huecos del triángulo (punta y suport) entre los dos compañeros del
+    // poseedor y cuenta los pases de la posesión
     public class TeamAI : MonoBehaviour
     {
         [SerializeField] TeamSide team;
@@ -17,6 +20,8 @@ namespace Waterpulse.AI
         [SerializeField] DifficultySO[] levels;
         [Tooltip("Agresivo = rival con IA completa. Pasivo = compañeros del humano: solo marcajes")]
         [SerializeField] bool aggressive = true;
+        [SerializeField] GameConfigSO config;
+        [SerializeField] PoolBounds pool;
 
         readonly List<PlayerController> fieldPlayers = new List<PlayerController>();
         readonly List<PlayerController> opponentFieldPlayers = new List<PlayerController>();
@@ -24,6 +29,8 @@ namespace Waterpulse.AI
         readonly List<(float distance, PlayerController marker, PlayerController attacker)> pairs =
             new List<(float, PlayerController, PlayerController)>();
         readonly HashSet<PlayerController> markedAttackers = new HashSet<PlayerController>();
+        readonly Dictionary<PlayerController, SupportSlot> supportSlots = new Dictionary<PlayerController, SupportSlot>();
+        readonly List<PlayerController> supporters = new List<PlayerController>();
         float timer;
 
         public TeamSide Team => team;
@@ -32,6 +39,13 @@ namespace Waterpulse.AI
         public PlayerController Chaser { get; private set; }
         public PlayerController Presser { get; private set; }
         public PlayerController Interceptor { get; private set; }
+        public PlayerController SecondPresser { get; private set; }
+
+        // Pases completados por este equipo en la posesión actual
+        public int PassesThisPossession { get; private set; }
+
+        // Hueco del triángulo que ocupa este jugador cuando su equipo ataca (no el poseedor)
+        public bool TryGetSupportSlot(PlayerController player, out SupportSlot slot) => supportSlots.TryGetValue(player, out slot);
 
         // Punto de la trayectoria del pase rival donde el interceptor intenta cortarlo
         public Vector3 InterceptPoint { get; private set; }
@@ -48,6 +62,29 @@ namespace Waterpulse.AI
             }
         }
 
+        void OnEnable()
+        {
+            GameEvents.PassCompleted += OnPassCompleted;
+            GameEvents.PossessionChanged += OnPossessionChanged;
+            GameEvents.Goal += OnGoal;
+        }
+
+        void OnDisable()
+        {
+            GameEvents.PassCompleted -= OnPassCompleted;
+            GameEvents.PossessionChanged -= OnPossessionChanged;
+            GameEvents.Goal -= OnGoal;
+        }
+
+        void OnPassCompleted(GameObject from, GameObject to)
+        {
+            var passer = from != null ? from.GetComponent<PlayerController>() : null;
+            if (passer != null && passer.Team == team) PassesThisPossession++;
+        }
+
+        void OnPossessionChanged(TeamSide owner) => PassesThisPossession = 0;
+        void OnGoal(TeamSide scorer, GameObject player) => PassesThisPossession = 0;
+
         void Update()
         {
             timer -= Time.deltaTime;
@@ -61,10 +98,17 @@ namespace Waterpulse.AI
             Chaser = null;
             Presser = null;
             Interceptor = null;
+            SecondPresser = null;
 
             // Quién se encarga del poseedor rival (en modo pasivo suele ser el humano: no se le asigna marcaje)
             var holder = ball.Holder;
-            if (holder != null && holder.Team != team && !holder.IsGoalkeeper) Presser = Nearest(holder.Position);
+            if (holder != null && holder.Team != team && !holder.IsGoalkeeper)
+            {
+                Presser = Nearest(holder.Position);
+                // Presión doble cerca de la portería propia: obliga a pasar en vez de ir recto a tirar
+                if (aggressive && Flat(holder.Position - pool.AttackedGoalCenter(team.Opponent())).magnitude <= config.aiDoublePressRange)
+                    SecondPresser = Nearest(holder.Position, Presser);
+            }
 
             if (aggressive)
             {
@@ -75,7 +119,50 @@ namespace Waterpulse.AI
             }
 
             AssignMarks();
+            AssignSupport(holder);
         }
+
+        // Los dos compañeros del poseedor se reparten punta y suport: la combinación que menos les hace nadar,
+        // y solo cambian si la otra es claramente mejor (si no, se cruzarían a cada momento)
+        void AssignSupport(PlayerController holder)
+        {
+            supporters.Clear();
+            if (holder != null && holder.Team == team && !holder.IsGoalkeeper)
+                foreach (var p in fieldPlayers) if (p != holder) supporters.Add(p);
+            if (supporters.Count == 0)
+            {
+                supportSlots.Clear();
+                return;
+            }
+            if (supporters.Count == 1)
+            {
+                supportSlots.Clear();
+                supportSlots[supporters[0]] = SupportSlot.Point;
+                return;
+            }
+
+            var pitch = Pitch();
+            Vector3 point = SupportSpots.SlotPosition(SupportSlot.Point, holder.Position, team, pitch, config);
+            Vector3 wing = SupportSpots.SlotPosition(SupportSlot.Wing, holder.Position, team, pitch, config);
+            var a = supporters[0];
+            var b = supporters[1];
+            float straight = Flat(a.Position - point).magnitude + Flat(b.Position - wing).magnitude;   // a punta, b suport
+            float crossed = Flat(a.Position - wing).magnitude + Flat(b.Position - point).magnitude;
+
+            bool keepCurrent = supportSlots.TryGetValue(a, out var aSlot) && supportSlots.ContainsKey(b);
+            bool aIsPoint = keepCurrent ? aSlot == SupportSlot.Point : straight <= crossed;
+            float current = aIsPoint ? straight : crossed;
+            float other = aIsPoint ? crossed : straight;
+            if (other + config.aiSupportSwitchMargin < current) aIsPoint = !aIsPoint;
+
+            supportSlots.Clear();
+            supportSlots[a] = aIsPoint ? SupportSlot.Point : SupportSlot.Wing;
+            supportSlots[b] = aIsPoint ? SupportSlot.Wing : SupportSlot.Point;
+        }
+
+        RolePositioning.Pitch Pitch() => new RolePositioning.Pitch { Center = pool.Center, HalfLength = pool.HalfLength, HalfWidth = pool.HalfWidth };
+
+        static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
         // Solo marca el equipo que defiende (el rival tuvo la pelota por última vez). Un marcador por atacante,
         // empezando por las parejas más cercanas; el poseedor no se marca (ya va el presionador)
@@ -87,7 +174,7 @@ namespace Waterpulse.AI
             pairs.Clear();
             foreach (var marker in fieldPlayers)
             {
-                if (marker == Presser || marker == Chaser || marker == Interceptor) continue;
+                if (marker == Presser || marker == SecondPresser || marker == Chaser || marker == Interceptor) continue;
                 foreach (var attacker in opponentFieldPlayers)
                 {
                     if (attacker == ball.Holder) continue;
@@ -130,12 +217,13 @@ namespace Waterpulse.AI
             }
         }
 
-        PlayerController Nearest(Vector3 point)
+        PlayerController Nearest(Vector3 point, PlayerController except = null)
         {
             PlayerController best = null;
             float bestDistance = float.MaxValue;
             foreach (var p in fieldPlayers)
             {
+                if (p == except) continue;
                 float d = Vector3.Distance(p.Position, point);
                 if (d < bestDistance)
                 {

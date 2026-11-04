@@ -8,12 +8,13 @@ using Waterpulse.Gameplay;
 namespace Waterpulse.Brains
 {
     // Cerebro de los jugadores de campo no controlados. Produce el mismo PlayerIntent que un humano.
-    // Con un TeamAI pasivo (compañeros del humano) se colocan por rol y marcan; con uno agresivo (rivales)
-    // además persiguen la pelota, presionan, cortan pases, pasan y tiran
+    // Con un TeamAI pasivo (compañeros del humano) se colocan por rol, marcan y, cuando su equipo ataca, se
+    // desmarcan en triángulo; con uno agresivo (rivales) además persiguen la pelota, presionan (también en
+    // presión doble), cortan pases, pasan buscando al desmarcado y tiran
     [RequireComponent(typeof(PlayerController))]
     public class AIBrain : MonoBehaviour, IPlayerBrain
     {
-        public enum State { Position, Mark, Attack, Chase, Intercept, Press }
+        public enum State { Position, Mark, Attack, Chase, Intercept, Press, Support }
 
         [SerializeField] GameConfigSO config;
         [SerializeField] BallController ball;
@@ -37,6 +38,9 @@ namespace Waterpulse.Brains
         float attackLaneZ;    // carril (Z) por el que avanza con la pelota
         float shotReleaseFill; // punto de la barra de tiro en el que soltará el tiro
         float shotPost;        // palo al que apunta (eje Y del stick)
+        bool speculativeShot;  // al recibir le tocó tirar "porque sí" en zona de tiro
+        Vector3 supportSpot;   // punto al que va para desmarcarse
+        bool hasSupportSpot;
 
         public State Current { get; private set; }
         public Vector3 Target { get; private set; }
@@ -83,7 +87,11 @@ namespace Waterpulse.Brains
             // Tiempo con la pelota: al recibirla empieza por su carril actual
             if (self.HasBall)
             {
-                if (holdTimer <= 0f) attackLaneZ = self.Position.z;
+                if (holdTimer <= 0f)
+                {
+                    attackLaneZ = self.Position.z;
+                    speculativeShot = Aggressive && Random.value < teamAI.Difficulty.speculativeShotChance;
+                }
                 holdTimer += Time.deltaTime;
             }
             else holdTimer = 0f;
@@ -98,8 +106,14 @@ namespace Waterpulse.Brains
                 if (self.HasBall) return Attack(decide);
                 if (teamAI.Chaser == self && ball.State == BallState.Free) return Chase();
                 if (teamAI.Interceptor == self && ball.State == BallState.InFlight) return WithDash(Go(State.Intercept, teamAI.InterceptPoint, true));
-                if (teamAI.Presser == self && ball.Holder != null) return Press(decide);
+                if (teamAI.Presser == self && ball.Holder != null) return Press(decide, false);
+                if (teamAI.SecondPresser == self && ball.Holder != null) return Press(decide, true);
             }
+
+            // Su equipo ataca: se desmarca en su hueco del triángulo
+            if (teamAI != null && teamAI.TryGetSupportSlot(self, out var slot) && ball.Holder != null)
+                return WithDash(Support(slot, decide));
+            hasSupportSpot = false;
 
             if (teamAI != null && teamAI.TryGetMark(self, out var rival))
             {
@@ -127,9 +141,20 @@ namespace Waterpulse.Brains
                     LaneWidth = config.aiLaneWidth,
                     MaxHoldTime = config.aiMaxHoldTime,
                     PassAdvanceGain = config.aiPassAdvanceGain,
+                    OpenRadius = config.aiOpenRadius,
+                    MinHoldBeforePass = config.aiMinHoldBeforePass,
+                    PassOpenGain = config.aiPassOpenGain,
+                    MinPassesBeforeShot = teamAI.Difficulty.minPassesBeforeShot,
+                    AdvanceWeight = config.aiPassAdvanceWeight,
+                };
+                var context = new AttackDecision.Context
+                {
+                    HoldTime = holdTimer,
+                    TeamPasses = teamAI.PassesThisPossession,
+                    WantsSpeculativeShot = speculativeShot,
                 };
                 var choice = AttackDecision.Decide(self.Position, sign, goal, teammatePositions, fieldOpponentPositions,
-                                                   allOpponentPositions, holdTimer, settings);
+                                                   allOpponentPositions, context, settings);
 
                 // Avanzar mantiene su carril; reposicionarse desplaza el carril en lateral para buscar hueco de tiro
                 attackLaneZ = choice.Action == AttackAction.Reposition
@@ -198,12 +223,19 @@ namespace Waterpulse.Brains
             return intent;
         }
 
-        // Se coloca entre el poseedor y su portería y, según la agresividad, intenta recuperar con J
-        PlayerIntent Press(bool decide)
+        // Se coloca entre el poseedor y su portería y, según la agresividad, intenta recuperar con J.
+        // El segundo de la presión doble se pone a un lado (hacia el centro del campo), sin chocar con el primero
+        PlayerIntent Press(bool decide, bool second)
         {
             var holder = ball.Holder;
             Vector3 ownGoal = pool.AttackedGoalCenter(self.Team.Opponent());
-            Vector3 spot = holder.Position + Flat(ownGoal - holder.Position).normalized * config.aiPressDistance;
+            Vector3 toGoal = Flat(ownGoal - holder.Position).normalized;
+            if (second)
+            {
+                float side = holder.Position.z > pool.Center.z ? -1f : 1f;
+                toGoal = Quaternion.Euler(0f, side * config.aiDoublePressAngle, 0f) * toGoal;
+            }
+            Vector3 spot = holder.Position + toGoal * config.aiPressDistance;
             PlayerIntent intent = WithDash(Go(State.Press, spot, true));
 
             bool inRange = Flat(holder.Position - self.Position).magnitude <= config.recoverRange
@@ -211,6 +243,21 @@ namespace Waterpulse.Brains
             if (decide && inRange && self.CanTryRecover && Random.value < teamAI.Difficulty.aggressiveness)
                 intent.Pass = true;
             return intent;
+        }
+
+        // Va al mejor punto alrededor de su hueco del triángulo. Lo revisa en cada decisión, no en cada frame
+        PlayerIntent Support(SupportSlot slot, bool decide)
+        {
+            if (decide || !hasSupportSpot)
+            {
+                var pitch = Pitch();
+                Vector3 slotPosition = SupportSpots.SlotPosition(slot, ball.Holder.Position, self.Team, pitch, config);
+                Vector3 goal = pool.AttackedGoalCenter(self.Team);
+                supportSpot = SupportSpots.BestSpot(slotPosition, hasSupportSpot ? supportSpot : slotPosition,
+                                                    ball.Holder.Position, goal, self.Team, fieldOpponentPositions, pitch, config);
+                hasSupportSpot = true;
+            }
+            return Go(State.Support, supportSpot);
         }
 
         Vector3 FormationTarget()

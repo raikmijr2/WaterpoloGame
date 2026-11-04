@@ -21,6 +21,9 @@ namespace Waterpulse.UI
         [SerializeField] Text effectsLabel;
         [SerializeField] Button fullscreenButton;
         [SerializeField] Text fullscreenLabel;
+        [Tooltip("Botón que cambia entre teclado y teclado + ratón")]
+        [SerializeField] Button controlSchemeButton;
+        [SerializeField] Text controlSchemeLabel;
 
         [Header("Textos")]
         [SerializeField] string masterFormat = "General: {0} %";
@@ -28,6 +31,8 @@ namespace Waterpulse.UI
         [SerializeField] string effectsFormat = "Efectes: {0} %";
         [SerializeField] string fullscreenOnText = "Pantalla completa: Sí";
         [SerializeField] string fullscreenOffText = "Pantalla completa: No";
+        [SerializeField] string keyboardText = "Controls: Teclat";
+        [SerializeField] string mouseText = "Controls: Ratolí";
 
         // Un volumen: su deslizador, su texto y lo guardado. Cambia al momento y se guarda cuando el deslizador
         // lleva un rato quieto, para no escribir en el navegador a cada paso
@@ -57,6 +62,7 @@ namespace Waterpulse.UI
         VolumeRow master;
         VolumeRow music;
         VolumeRow effects;
+        ControlSchemeSetting controlScheme;
 
         void Awake()
         {
@@ -66,12 +72,22 @@ namespace Waterpulse.UI
             effects = CreateRow(effectsSlider, effectsLabel, effectsFormat, new VolumeSetting(store, config.effectsVolumeKey, config.defaultEffectsVolume));
             Apply();   // se aplican los volúmenes guardados al abrir la escena
             fullscreenButton.onClick.AddListener(ToggleFullscreen);
+
+            // Controles: los guardados se aplican al abrir la escena; el botón cambia entre teclado y ratón
+            controlScheme = new ControlSchemeSetting(store, config.controlSchemeKey);
+            ControlPreferences.UseMouse = controlScheme.UseMouse;
+            controlSchemeButton.onClick.AddListener(() =>
+            {
+                controlScheme.Set(!ControlPreferences.UseMouse);
+                ControlPreferences.UseMouse = controlScheme.UseMouse;
+            });
         }
 
         void Update()
         {
             // El navegador puede salir de la pantalla completa por su cuenta (Esc): el texto sigue el estado real
             fullscreenLabel.text = Screen.fullScreen ? fullscreenOnText : fullscreenOffText;
+            controlSchemeLabel.text = ControlPreferences.UseMouse ? mouseText : keyboardText;
 
             // Tiempo sin escalar: en la pausa del partido el tiempo está parado
             float dt = Time.unscaledDeltaTime;

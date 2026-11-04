@@ -11,7 +11,9 @@ namespace Waterpulse.Brains
     // Al defender, salta al jugador más cercano a la pelota (con margen y espera para no cambiar constantemente).
     // Con Q (LT en el mando) se cambia a mano al más cercano a la pelota; si ya eres tú, al siguiente.
     // Con E (RT en el mando) se coge al portero en cualquier momento (también con la cámara lenta de un tiro rival);
-    // otra E vuelve al jugador de campo más cercano a la pelota. Mientras llevas al portero no hay cambio automático.
+    // otra E vuelve al jugador de campo más cercano a la pelota. Mientras llevas al portero con E no hay cambio automático.
+    // Cuando el portero propio se queda la pelota (parada, muro o pelota suelta) el control pasa a él, para elegir
+    // a quién sacar; tras el saque vuelve a funcionar el cambio automático (si se la roban, salta al de campo).
     // Tras un cambio manual el automático espera un poco para no deshacerlo
     public class ControlSwitcher : MonoBehaviour
     {
@@ -30,6 +32,7 @@ namespace Waterpulse.Brains
         InputAction switchAction;
         InputAction keeperAction;
         PlayerController goalkeeper;
+        bool keeperAuto;   // el portero lo ha cogido el cambio automático (al quedarse la pelota), no la E
 
         public PlayerController Controlled { get; private set; }
 
@@ -96,6 +99,7 @@ namespace Waterpulse.Brains
                 if (next != null)
                 {
                     SwitchTo(next);
+                    keeperAuto = false;
                     manualLockTimer = config.manualSwitchLock;
                 }
                 return;
@@ -114,7 +118,7 @@ namespace Waterpulse.Brains
             }
 
             // Cambio automático al defender (no si llevas al portero: lo dejas tú con E o Q)
-            if (switchCooldown > 0f || manualLockTimer > 0f || Controlled.IsGoalkeeper || !IsDefending()) return;
+            if (switchCooldown > 0f || manualLockTimer > 0f || (Controlled.IsGoalkeeper && !keeperAuto) || !IsDefending()) return;
             var nearest = NearestToBall(null);
             if (nearest == null || nearest == Controlled) return;
             float current = Vector3.Distance(Controlled.Position, ball.Position);
@@ -143,14 +147,21 @@ namespace Waterpulse.Brains
 
         void OnHolderChanged(PlayerController previous, PlayerController next)
         {
-            if (next == null || next == Controlled) return;
-            if (next.Team == humanTeam && !next.IsGoalkeeper) SwitchTo(next);
+            if (next == null || next == Controlled || next.Team != humanTeam) return;
+            if (!next.IsGoalkeeper) SwitchTo(next);
+            else if (next == goalkeeper)
+            {
+                SwitchTo(next);
+                keeperAuto = true;
+            }
         }
 
         void SwitchTo(PlayerController player)
         {
+            keeperAuto = false;
             if (Controlled != null) Controlled.ResetBrain();
             Controlled = player;
+            human.Controlled = player;
             player.SetBrain(human);
             GameEvents.RaiseControlledPlayerChanged(player.gameObject);
             switchCooldown = config.autoSwitchCooldown;

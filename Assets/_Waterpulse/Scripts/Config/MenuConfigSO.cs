@@ -41,6 +41,8 @@ namespace Waterpulse.Config
         public float volumeSaveDelay = 0.5f;
         [Tooltip("Clave con la que se guarda el volumen general en el navegador")]
         public string volumeKey = "waterpulse.settings.volume";
+        [Tooltip("Clave con la que se guardan los controles elegidos (teclado o teclado + ratón)")]
+        public string controlSchemeKey = "waterpulse.settings.controls";
         [Tooltip("Volumen de la música la primera vez que se juega (0-1)")]
         [Range(0f, 1f)] public float defaultMusicVolume = 0.8f;
         public string musicVolumeKey = "waterpulse.settings.musicVolume";

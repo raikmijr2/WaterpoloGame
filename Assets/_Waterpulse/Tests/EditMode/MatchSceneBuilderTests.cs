@@ -390,6 +390,17 @@ namespace Waterpulse.Tests.EditMode
             var walls = Object.FindObjectsByType<WaterWall>(FindObjectsSortMode.None);
             Assert.AreEqual(2, walls.Length, "un muro por portería");
             foreach (var wall in walls) AssertNoMissingReferences(wall);
+            Assert.AreNotEqual(new SerializedObject(walls[0]).FindProperty("team").enumValueIndex,
+                               new SerializedObject(walls[1]).FindProperty("team").enumValueIndex, "cada muro es de su equipo");
+            // El muro usa los paneles del modelo (no la placa lisa de reserva)
+            int modelPanels = 0;
+            foreach (var mf in walls[0].GetComponentsInChildren<MeshFilter>(true))
+                if (mf.sharedMesh != null && mf.sharedMesh.name.StartsWith("barredwall")) modelPanels++;
+            Assert.AreEqual(2, modelPanels, "paneles de rejas del modelo Scifi Modular Walls");
+            // Mur de Ferro (decidido): 5 s
+            var murFerro = AssetDatabase.LoadAssetAtPath<AbilityDefinitionSO>(MatchSceneBuilder.MurAiguaPath);
+            Assert.AreEqual("Mur de Ferro", murFerro.displayName);
+            Assert.AreEqual(5f, murFerro.duration);
             foreach (var keeper in Object.FindObjectsByType<GoalkeeperController>(FindObjectsSortMode.None))
             {
                 AssertNoMissingReferences(keeper);
@@ -475,6 +486,26 @@ namespace Waterpulse.Tests.EditMode
             Assert.IsNotNull(hall, "pabellón alrededor de la piscina");
             var wall = hall.transform.Find("WallNorth");
             Assert.Greater(wall.localPosition.z, menu.cameraDistance, "la pared queda fuera de la vuelta de la cámara");
+        }
+
+        [Test]
+        public void Build_GoalCelebration_ConfettiFlashAndCrowd()
+        {
+            MatchSceneBuilder.Build();
+
+            // Cuatro cañones de confeti (uno por esquina) que se posan en el agua, y el público para que salte
+            var celebration = Object.FindFirstObjectByType<GoalCelebration>();
+            Assert.IsNotNull(celebration, "celebración del gol");
+            AssertNoMissingReferences(celebration);
+            var cannons = new SerializedObject(celebration).FindProperty("cannons");
+            Assert.AreEqual(4, cannons.arraySize, "un cañón por esquina");
+            var cannon = (ParticleSystem)cannons.GetArrayElementAtIndex(0).objectReferenceValue;
+            Assert.IsTrue(cannon.collision.enabled, "el confeti choca con el agua y se queda");
+            Assert.IsFalse(cannon.main.playOnAwake, "solo sale al marcar");
+
+            var flash = Object.FindFirstObjectByType<GoalFlashView>();
+            Assert.IsNotNull(flash, "destello del gol");
+            AssertNoMissingReferences(flash);
         }
 
         [Test]

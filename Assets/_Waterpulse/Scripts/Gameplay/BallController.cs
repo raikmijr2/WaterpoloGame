@@ -174,6 +174,8 @@ namespace Waterpulse.Gameplay
         {
             if (State != BallState.Held || IsFrozen || Holder == null) return RecoverResult.OutOfRange;
             if (Holder.Team == thief.Team || Holder.IsGoalkeeper) return RecoverResult.OutOfRange;
+            // Cargando el tiro o lanzando (pase o tiro) no se le puede quitar: el tiro solo lo para el portero
+            if (Holder.BallInHand) return RecoverResult.OutOfRange;
 
             float distance = FlatDistance(thief.Position, Holder.Position);
             if (distance > config.recoverRange) return RecoverResult.OutOfRange;

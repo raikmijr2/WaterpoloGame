@@ -40,6 +40,24 @@ namespace Waterpulse.Config
         [Tooltip("\"Oooh\": gol del rival o parada")]
         public AudioClip crowdOoh;
 
+        [Header("Celebración del gol")]
+        [Tooltip("Aplausos con fuegos artificiales (gol del equipo del jugador)")]
+        public AudioClip goalApplause;
+        [Tooltip("Cañón de confeti (suena en los dos tipos de gol)")]
+        public AudioClip goalCannon;
+        [Tooltip("Crepitar de los fuegos, poco después de los cañones")]
+        public AudioClip goalFireworks;
+        [Tooltip("Retraso del segundo cañón y de los fuegos respecto al gol (s)")]
+        public float goalSecondCannonDelay = 0.18f;
+        public float goalFireworksDelay = 0.45f;
+        [Tooltip("Volumen de los aplausos del gol (van por su propio canal: ningún otro efecto los corta)")]
+        [Range(0f, 1f)] public float goalApplauseLevel = 1f;
+        [Tooltip("Al marcar, la música baja a esta fracción unos segundos para que se oiga la celebración")]
+        [Range(0f, 1f)] public float goalMusicDuck = 0.3f;
+        [Tooltip("Lo que dura la música bajada y lo que tarda en volver (s)")]
+        public float goalMusicDuckDuration = 4f;
+        public float goalMusicDuckRecover = 1.5f;
+
         [Header("Juego")]
         public AudioClip passSplash;
         public AudioClip shotSplash;
@@ -54,6 +72,10 @@ namespace Waterpulse.Config
         public AudioClip bounce;
         [Tooltip("Parada del portero")]
         public AudioClip save;
+        [Tooltip("El Mur de Ferro cae en el agua (por defecto, el golpe metálico de los palos, más grave)")]
+        public AudioClip wallImpact;
+        [Tooltip("Tono del golpe del Mur de Ferro (1 = original; más bajo = más grave)")]
+        [Range(0.3f, 1.5f)] public float wallImpactPitch = 0.6f;
         public AbilitySound[] abilitySounds = new AbilitySound[0];
 
         [Header("Interfaz")]

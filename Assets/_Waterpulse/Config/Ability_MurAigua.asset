@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: Ability_MurAigua
   m_EditorClassIdentifier: Waterpulse.Config::Waterpulse.Config.AbilityDefinitionSO
   kind: 2
-  displayName: Mur d'Aigua
+  displayName: Mur de Ferro
   cost: 100
   power: 2
-  duration: 2
+  duration: 5
   goalkeeperReach: 0.6
+  generatorVersion: 1

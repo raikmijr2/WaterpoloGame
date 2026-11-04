@@ -23,6 +23,15 @@ MonoBehaviour:
   crowdLoop: {fileID: 8300000, guid: a054c5e4ca1dd734eb90ab466a9f6b3a, type: 3}
   crowdCheer: {fileID: 8300000, guid: ee4a912a7d9fbf3448a67f0ada9bc6de, type: 3}
   crowdOoh: {fileID: 8300000, guid: 8c4d09a9e50523044b05d4dca96de447, type: 3}
+  goalApplause: {fileID: 8300000, guid: 01b907db5e4467d49b04ac4e1d582432, type: 3}
+  goalCannon: {fileID: 8300000, guid: e4da626227eb9604b8052c5aa6f4751f, type: 3}
+  goalFireworks: {fileID: 8300000, guid: 4f91755c16698804682fc183ed6424e9, type: 3}
+  goalSecondCannonDelay: 0.18
+  goalFireworksDelay: 0.45
+  goalApplauseLevel: 1
+  goalMusicDuck: 0.3
+  goalMusicDuckDuration: 4
+  goalMusicDuckRecover: 1.5
   passSplash: {fileID: 8300000, guid: a12ee1fa548ea8c4396597bc986afca3, type: 3}
   shotSplash: {fileID: 8300000, guid: ab018593cb812e74aaffbda5e855ace5, type: 3}
   catchSlap: {fileID: 8300000, guid: 1eeac897ab2ee29468b52a59275be771, type: 3}
@@ -31,6 +40,8 @@ MonoBehaviour:
   dash: {fileID: 8300000, guid: 3098e6f099ac933418fdd2d16e563cca, type: 3}
   bounce: {fileID: 8300000, guid: 3b4e443443ea3fa459261dc9ac3f8bd6, type: 3}
   save: {fileID: 8300000, guid: ec294a343889728438878571c5ffdff2, type: 3}
+  wallImpact: {fileID: 8300000, guid: 3b4e443443ea3fa459261dc9ac3f8bd6, type: 3}
+  wallImpactPitch: 0.6
   abilitySounds:
   - ability: {fileID: 11400000, guid: afdf31afaf0cd55499a99163afb99081, type: 2}
     clip: {fileID: 8300000, guid: 05fe1795db8ece54583c1d366c38e34e, type: 3}

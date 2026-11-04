@@ -37,6 +37,8 @@ namespace Waterpulse.Gameplay
         ShotMeter shotMeter;
         Transform visual;           // hijo "Visual": el saltito y la subida del tiro solo se ven, no mueven el cuerpo
         float visualBaseY;
+        Quaternion visualBaseRotation;
+        float pushVisualTimer;      // salto y vuelta (solo visuales) del empujón de la onada
         float freezeTimer;          // quieto tras pasar
         float hopTimer;             // saltito del pase
         // Lanzamiento pendiente (pase o tiro): la pelota sale con el evento ReleaseBall de la animación
@@ -48,6 +50,9 @@ namespace Waterpulse.Gameplay
         float shotAim;              // punto de mira mientras carga: -1 un palo, 0 centro, 1 el otro
         float shotQuality;
         float shotRise;             // altura a la que se quedó al soltar la barra
+        float pushTimer;            // empujón de la onada del Mur de Ferro
+        float pushDuration;
+        Vector3 pushVelocity;
 
         public TeamSide Team => team;
         public PlayerRole Role => role;
@@ -107,7 +112,11 @@ namespace Waterpulse.Gameplay
             body.interpolation = RigidbodyInterpolation.Interpolate;
             shotMeter = new ShotMeter(config.shotMeterDuration, config.shotGreenStart, config.shotGreenWidth, config.shotOffGreenMaxQuality);
             visual = transform.Find("Visual");
-            if (visual != null) visualBaseY = visual.localPosition.y;
+            if (visual != null)
+            {
+                visualBaseY = visual.localPosition.y;
+                visualBaseRotation = visual.localRotation;
+            }
         }
 
         void OnEnable()
@@ -217,6 +226,16 @@ namespace Waterpulse.Gameplay
 
         void FixedUpdate()
         {
+            if (pushTimer > 0f)
+            {
+                // Empujado por la onada: sale despedido y va frenando; no obedece al stick mientras dura
+                pushTimer -= Time.fixedDeltaTime;
+                body.linearDamping = 0f;
+                body.linearVelocity = pushVelocity * Mathf.Clamp01(pushTimer / pushDuration);
+                body.angularVelocity = Vector3.zero;
+                return;
+            }
+
             if (boostTimer > 0f)
             {
                 // Acelerón: dirección fija, no se puede girar hasta que acaba
@@ -296,7 +315,16 @@ namespace Waterpulse.Gameplay
         {
             if (visual == null) return;
             float height = 0f;
-            if (hopTimer > 0f && config.passFreezeDuration > 0f)
+            if (pushVisualTimer > 0f && pushDuration > 0f)
+            {
+                // Empujado por la onada: sale por los aires dando una vuelta y cae al agua
+                pushVisualTimer -= Time.deltaTime;
+                float t = 1f - Mathf.Clamp01(pushVisualTimer / pushDuration);
+                height = Mathf.Sin(Mathf.PI * t) * config.wallPushHopHeight;
+                visual.localRotation = visualBaseRotation * Quaternion.Euler(0f, 360f * config.wallPushSpins * Mathf.SmoothStep(0f, 1f, t), 0f);
+                if (pushVisualTimer <= 0f) visual.localRotation = visualBaseRotation;
+            }
+            else if (hopTimer > 0f && config.passFreezeDuration > 0f)
                 height = Mathf.Sin(Mathf.PI * (1f - hopTimer / config.passFreezeDuration)) * config.passHopHeight;
             else if (shotMeter.IsCharging)
                 height = shotMeter.Fill * config.shotRiseHeight;
@@ -334,6 +362,21 @@ namespace Waterpulse.Gameplay
             boostTimer = duration;
         }
 
+        // Empujón (la onada del Mur de Ferro): sale a "velocity" y frena hasta pararse en "duration".
+        // Recorre velocity × duration / 2. Corta el acelerón; si lleva la pelota, se la queda
+        public void Push(Vector3 velocity, float duration)
+        {
+            velocity.y = 0f;
+            if (duration <= 0f || velocity.sqrMagnitude < 0.0001f) return;
+            boostTimer = 0f;
+            pushVelocity = velocity;
+            pushDuration = duration;
+            pushTimer = duration;
+            pushVisualTimer = duration;
+        }
+
+        public bool IsPushed => pushTimer > 0f;
+
         // Dirección del stick; sin stick, hacia donde mira
         public Vector3 AimDirection()
         {
@@ -347,6 +390,9 @@ namespace Waterpulse.Gameplay
             facing.y = 0f;
             Quaternion rotation = facing.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(facing) : transform.rotation;
             boostTimer = 0f;
+            pushTimer = 0f;
+            pushVisualTimer = 0f;
+            if (visual != null) visual.localRotation = visualBaseRotation;
             CancelActions();
             body.linearVelocity = Vector3.zero;
             body.position = position;

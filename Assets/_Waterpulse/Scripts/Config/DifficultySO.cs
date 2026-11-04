@@ -23,5 +23,11 @@ namespace Waterpulse.Config
         [Range(0f, 1f)] public float shotMissMinFill = 0.5f;
         [Tooltip("Sale la guía de controles abajo (las teclas que sirven en cada momento)")]
         public bool showControlHints;
+        [Tooltip("Probabilidad de tirar \"porque sí\" en zona de tiro aunque no esté libre; se sortea cada vez que recibe (0-1)")]
+        [Range(0f, 1f)] public float speculativeShotChance = 0.08f;
+        [Tooltip("Pases de su equipo en la posesión antes de buscar el tiro (en contraataque, sin defensores delante, tira igual)")]
+        public int minPassesBeforeShot = 2;
+        [Tooltip("Versión de los valores que ha rellenado el generador (para añadir los nuevos sin pisar lo ajustado)")]
+        [HideInInspector] public int generatorVersion;
     }
 }

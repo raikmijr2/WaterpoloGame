@@ -21,6 +21,11 @@ namespace Waterpulse.UI
         [SerializeField] string charging = "{W/S} APUNTAR   {K} XUTAR";
         [SerializeField] string defending = "{J} ROBAR   {L} TORPEDE   {Shift} DASH   {Q} CANVIAR   {E} PORTER";
         [SerializeField] string keeper = "{L} MUR D'AIGUA   {J} PASSAR   {E} TORNAR AL CAMP";
+        [Header("Amb ratolí (Opcions > Controls: Ratolí)")]
+        [SerializeField] string withBallMouse = "{Clic dret} PASSAR   {Clic} XUTAR   {Doble clic} SÚPER XUT   {Shift} DASH";
+        [SerializeField] string chargingMouse = "{W/S} APUNTAR   {Clic} XUTAR";
+        [SerializeField] string defendingMouse = "{Clic dret} ROBAR   {Doble clic} TORPEDE   {Shift} DASH   {Q} CANVIAR   {E} PORTER";
+        [SerializeField] string keeperMouse = "{Doble clic} MUR D'AIGUA   {Clic dret} PASSAR   {E} TORNAR AL CAMP";
 
         PlayerController controlled;
         bool playing;
@@ -53,10 +58,11 @@ namespace Waterpulse.UI
             if (panel.activeSelf != show) panel.SetActive(show);
             if (!show) return;
 
-            string hint = controlled.IsGoalkeeper ? keeper
-                        : controlled.IsChargingShot ? charging
-                        : controlled.HasBall ? withBall
-                        : defending;
+            bool mouse = ControlPreferences.UseMouse;
+            string hint = controlled.IsGoalkeeper ? (mouse ? keeperMouse : keeper)
+                        : controlled.IsChargingShot ? (mouse ? chargingMouse : charging)
+                        : controlled.HasBall ? (mouse ? withBallMouse : withBall)
+                        : (mouse ? defendingMouse : defending);
             string text = Format(hint);
             if (label.text != text) label.text = text;
         }

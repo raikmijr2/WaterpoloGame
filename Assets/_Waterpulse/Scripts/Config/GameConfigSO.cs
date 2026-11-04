@@ -71,6 +71,8 @@ namespace Waterpulse.Config
         public float shotMaxErrorAngle = 12f;
         [Tooltip("Velocidad del tiempo mientras alguien carga el tiro (1 = normal). Deja tiempo para apuntar y para coger al portero")]
         [Range(0.05f, 1f)] public float shotSlowMotionScale = 0.3f;
+        [Tooltip("Ratón: tiempo para el segundo clic del doble clic (súper xut). El clic izquierdo espera esto antes de cargar el tiro (s, tiempo real)")]
+        public float mouseDoubleClickWindow = 0.25f;
         [Tooltip("Lo que se mueve el punto de mira por segundo real mientras carga (fracción de media portería)")]
         public float shotAimSpeed = 2f;
 
@@ -170,6 +172,39 @@ namespace Waterpulse.Config
         [Tooltip("La IA usa el acelerón (Torpede Blau) para llegar a una pelota suelta más lejos que esto (m)")]
         public float aiBoostDistance = 6f;
 
+        [Header("IA: juego en triángulo")]
+        [Tooltip("Desmarcado = ningún defensor de campo a menos de esto (m)")]
+        public float aiOpenRadius = 2.5f;
+        [Tooltip("Sin presión, no pasa antes de llevar la pelota esto (s): así no se la pasan a lo loco")]
+        public float aiMinHoldBeforePass = 0.5f;
+        [Tooltip("Pasa a un compañero que esté al menos esto más libre que él (m)")]
+        public float aiPassOpenGain = 1f;
+        [Tooltip("Al elegir a quién pasar, lo que vale cada metro que el compañero está más adelantado")]
+        public float aiPassAdvanceWeight = 0.5f;
+        [Tooltip("Punta del triángulo: por delante del poseedor (m) y separación del centro hacia el lado libre (m)")]
+        public float aiPointAhead = 4f;
+        public float aiPointSide = 2.5f;
+        [Tooltip("Suport del triángulo: por detrás del poseedor (m) y abierto hacia el lado libre (m)")]
+        public float aiWingBack = 1.5f;
+        public float aiWingSide = 5f;
+        [Tooltip("Para desmarcarse, cuántos puntos prueba alrededor de su sitio y a qué distancia (m)")]
+        public int aiSupportCandidates = 8;
+        public float aiSupportSearchRadius = 2f;
+        [Tooltip("Solo cambia de punto si el nuevo es mejor por al menos esto (evita que tiemble)")]
+        public float aiSupportSwitchMargin = 0.75f;
+        [Tooltip("Resta a un punto con la línea de pase tapada o demasiado pegado al poseedor")]
+        public float aiSupportBlockedPenalty = 3f;
+        [Tooltip("Suma a un punto en zona de tiro con la línea libre")]
+        public float aiSupportShotBonus = 1f;
+        [Tooltip("Resta por cada metro que se aleja de su sitio en el triángulo")]
+        public float aiSupportShapeWeight = 0.3f;
+        [Tooltip("Separación mínima con el poseedor para recibir (m)")]
+        public float aiSupportMinSpacing = 3f;
+        [Tooltip("Presión doble: si el poseedor rival está a esto de la portería o menos, va un segundo defensor (m)")]
+        public float aiDoublePressRange = 7f;
+        [Tooltip("Ángulo del segundo defensor respecto al primero, al lado del poseedor (grados)")]
+        public float aiDoublePressAngle = 60f;
+
         [Header("IA: movimiento")]
         [Tooltip("A esta distancia del objetivo se considera que ha llegado (m)")]
         public float aiArriveRadius = 0.5f;
@@ -250,6 +285,19 @@ namespace Waterpulse.Config
         [Tooltip("Temblor de cámara cuando fallas un intento de robo: amplitud (m)")]
         public float cameraShakeAmplitude = 0.12f;
 
+        [Header("Celebración del gol (solo aspecto)")]
+        [Tooltip("Temblor de cámara al marcar: duración (s, tiempo real) y amplitud (m)")]
+        public float goalShakeDuration = 0.7f;
+        public float goalShakeAmplitude = 0.45f;
+        [Tooltip("Golpe de zoom al marcar: grados que se cierra la cámara y lo que tarda en volver (s)")]
+        public float goalZoomPunch = 7f;
+        public float goalZoomDuration = 0.9f;
+        [Tooltip("El público salta más alto y más rápido durante este tiempo tras un gol (s)")]
+        public float goalCrowdHypeDuration = 4f;
+        [Tooltip("Cuántas veces más alto y más rápido salta el público al principio de la celebración")]
+        public float goalCrowdJumpBoost = 3f;
+        public float goalCrowdSpeedBoost = 1.7f;
+
         [Header("Estamina, dash y nado lento")]
         public float maxStamina = 100f;
         [Tooltip("Recarga por segundo")]
@@ -267,6 +315,33 @@ namespace Waterpulse.Config
         public float slowBrakeDeceleration = 40f;
         [Tooltip("La IA (rivales y compañeros) hace dash si el objetivo está más lejos que esto (m)")]
         public float aiDashDistance = 4f;
+
+        [Header("Mur de Ferro (portero)")]
+        [Tooltip("Altura desde la que cae el muro (m) y lo que tarda en caer (s)")]
+        public float wallDropHeight = 6f;
+        public float wallDropTime = 0.25f;
+        [Tooltip("Lo que tarda en hundirse al acabar (s)")]
+        public float wallSinkTime = 0.4f;
+        [Tooltip("La onada empuja a los rivales de campo que estén a menos de esto de la portería (m), como la línea de 5 m")]
+        public float wallPushRadius = 5f;
+        [Tooltip("Se quedan esto más allá del radio (m): salen bien despedidos")]
+        public float wallPushMargin = 2.5f;
+        [Tooltip("Lo que dura el empujón (s): salen despedidos y van frenando")]
+        public float wallPushDuration = 0.6f;
+        [Tooltip("Salto (solo visual) de los empujados (m) y vueltas que dan sobre sí mismos")]
+        public float wallPushHopHeight = 0.9f;
+        public float wallPushSpins = 1f;
+        [Tooltip("Lo que tarda el anillo de espuma en llegar al radio (s)")]
+        public float wallWaveDuration = 0.5f;
+        [Tooltip("Onada en el agua (shader): velocidad (m/s), altura (m), anchura de la cresta (m), duración (s) y espuma (0-1)")]
+        public float wallWaveSpeed = 9f;
+        public float wallWaveHeight = 0.55f;
+        public float wallWaveWidth = 0.7f;
+        public float wallWaveLife = 1.6f;
+        [Range(0f, 1f)] public float wallWaveFoam = 0.9f;
+        [Tooltip("Temblor de cámara al caer el muro")]
+        public float wallShakeDuration = 0.45f;
+        public float wallShakeAmplitude = 0.4f;
 
         [Header("Pausa")]
         [Tooltip("Al continuar, el partido espera esto antes de seguir, para que la tecla con la que se confirma no sea un pase (s)")]

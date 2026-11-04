@@ -28,6 +28,7 @@ namespace Waterpulse.EditorTools
             public Slider Effects;
             public Text EffectsLabel;
             public PressButton Fullscreen;
+            public Button ControlScheme;
             public Button Controls;
             public Text RecordLabel;    // solo en el menú principal
             public Button ResetRecord;  // solo en el menú principal
@@ -57,26 +58,27 @@ namespace Waterpulse.EditorTools
             heading.color = Volt;
         }
 
-        // Opciones: volúmenes (general, música y efectos), pantalla completa y controles; en el menú principal, también
+        // Opciones: volúmenes (general, música y efectos), pantalla completa, teclado o ratón y controles; en el menú principal, también
         // el récord del usuario. Una sola columna: con los deslizadores, izquierda y derecha cambian el valor y no servirían
         // para pasar a otra columna con el teclado o el mando
         internal static OptionsWidgets Options(Transform page, Vector2 anchor, bool withRecord)
         {
-            var box = Box(page, "Box", anchor, new Vector2(900f, withRecord ? 725f : 585f));
+            var box = Box(page, "Box", anchor, new Vector2(900f, withRecord ? 815f : 675f));
             Heading(box, "Opcions");
             var w = new OptionsWidgets();
             w.MasterLabel = VolumeRow(box, "Master", -130f, out w.Master);
             w.MusicLabel = VolumeRow(box, "Music", -195f, out w.Music);
             w.EffectsLabel = VolumeRow(box, "Effects", -260f, out w.Effects);
             w.Fullscreen = MenuButton<PressButton>(box, "FullscreenButton", "Pantalla completa", BoxButtonFont, Top, new Vector2(0f, -340f), BoxButtonSize);
-            w.Controls = MenuButton<Button>(box, "ControlsButton", "Controls", BoxButtonFont, Top, new Vector2(0f, -430f), BoxButtonSize);
+            w.ControlScheme = MenuButton<Button>(box, "ControlSchemeButton", "Controls: Ratolí", BoxButtonFont, Top, new Vector2(0f, -430f), BoxButtonSize);
+            w.Controls = MenuButton<Button>(box, "ControlsButton", "Controls", BoxButtonFont, Top, new Vector2(0f, -520f), BoxButtonSize);
             if (withRecord)
             {
-                w.RecordLabel = Label(box, "RecordLabel", 30, Top, new Vector2(0f, -490f), new Vector2(800f, 40f), true);
+                w.RecordLabel = Label(box, "RecordLabel", 30, Top, new Vector2(0f, -580f), new Vector2(800f, 40f), true);
                 w.RecordLabel.color = SoftText;
-                w.ResetRecord = MenuButton<Button>(box, "ResetRecordButton", "Esborrar el meu rècord", BoxButtonFont, Top, new Vector2(0f, -575f), BoxButtonSize);
+                w.ResetRecord = MenuButton<Button>(box, "ResetRecordButton", "Esborrar el meu rècord", BoxButtonFont, Top, new Vector2(0f, -665f), BoxButtonSize);
             }
-            w.Back = MenuButton<Button>(box, "BackButton", "Tornar", BoxButtonFont, Top, new Vector2(0f, withRecord ? -665f : -525f), BoxButtonSize);
+            w.Back = MenuButton<Button>(box, "BackButton", "Tornar", BoxButtonFont, Top, new Vector2(0f, withRecord ? -755f : -615f), BoxButtonSize);
             return w;
         }
 
@@ -92,6 +94,8 @@ namespace Waterpulse.EditorTools
             SetRef(menu, "effectsLabel", w.EffectsLabel);
             SetRef(menu, "fullscreenButton", w.Fullscreen);
             SetRef(menu, "fullscreenLabel", w.Fullscreen.GetComponentInChildren<Text>());
+            SetRef(menu, "controlSchemeButton", w.ControlScheme);
+            SetRef(menu, "controlSchemeLabel", w.ControlScheme.GetComponentInChildren<Text>());
         }
 
         // Una fila de volumen: el nombre y el porcentaje a la izquierda (lo escribe OptionsMenu) y el deslizador a la derecha

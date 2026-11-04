@@ -55,7 +55,7 @@ namespace Waterpulse.AI
         }
 
         // Dentro del campo, sin pegarse a las bandas ni a la línea propia, y sin acercarse demasiado a la portería rival
-        static Vector3 Clamp(Vector3 target, float sign, Pitch pitch, GameConfigSO cfg)
+        public static Vector3 Clamp(Vector3 target, float sign, Pitch pitch, GameConfigSO cfg)
         {
             float ownLimit = pitch.HalfLength - cfg.formationEdgeMargin;
             float rivalLimit = pitch.HalfLength - cfg.formationMinGoalDistance;

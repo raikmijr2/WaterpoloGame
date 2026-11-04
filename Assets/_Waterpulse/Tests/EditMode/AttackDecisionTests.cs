@@ -12,12 +12,17 @@ namespace Waterpulse.Tests.EditMode
         static readonly AttackDecision.Settings S = new AttackDecision.Settings
         {
             ShootRange = 6f, PressureRadius = 1.5f, LaneWidth = 0.8f, MaxHoldTime = 3f, PassAdvanceGain = 3f,
+            OpenRadius = 2.5f, MinHoldBeforePass = 0.5f, PassOpenGain = 1f, MinPassesBeforeShot = 0, AdvanceWeight = 0.5f,
         };
         static readonly List<Vector3> None = new List<Vector3>();
 
-        static AttackChoice Decide(Vector3 self, List<Vector3> mates, List<Vector3> fieldOpp, List<Vector3> allOpp = null, float holdTime = 0f)
+        static AttackChoice Decide(Vector3 self, List<Vector3> mates, List<Vector3> fieldOpp, List<Vector3> allOpp = null, float holdTime = 0f,
+                                   int passes = 0, bool speculative = false, int minPasses = 0)
         {
-            return AttackDecision.Decide(self, 1f, Goal, mates, fieldOpp, allOpp ?? fieldOpp, holdTime, S);
+            var settings = S;
+            settings.MinPassesBeforeShot = minPasses;
+            var ctx = new AttackDecision.Context { HoldTime = holdTime, TeamPasses = passes, WantsSpeculativeShot = speculative };
+            return AttackDecision.Decide(self, 1f, Goal, mates, fieldOpp, allOpp ?? fieldOpp, ctx, settings);
         }
 
         [Test]
@@ -89,7 +94,56 @@ namespace Waterpulse.Tests.EditMode
         {
             var farOpponent = new List<Vector3> { new Vector3(-5f, 0f, 5f) };
             var mates = new List<Vector3> { new Vector3(4f, 0f, 3f) };   // 4 m más adelantado y con línea limpia
-            var choice = Decide(new Vector3(0f, 0f, 0f), mates, farOpponent);
+            var choice = Decide(new Vector3(0f, 0f, 0f), mates, farOpponent, null, S.MinHoldBeforePass);
+            Assert.AreEqual(AttackAction.Pass, choice.Action);
+            Assert.AreEqual(0, choice.PassIndex);
+        }
+
+        [Test]
+        public void WithoutPressure_DoesNotPassRightAfterReceiving()
+        {
+            var farOpponent = new List<Vector3> { new Vector3(-5f, 0f, 5f) };
+            var mates = new List<Vector3> { new Vector3(4f, 0f, 3f) };
+            Assert.AreEqual(AttackAction.Advance, Decide(new Vector3(0f, 0f, 0f), mates, farOpponent).Action);
+        }
+
+        // Triángulo: libre en zona de tiro, pero faltan pases → mueve la pelota; con los pases hechos, tira
+        [Test]
+        public void OpenInRange_WithoutEnoughPasses_PassesToOpenTeammate_ThenShoots()
+        {
+            var self = new Vector3(6f, 0f, 0f);
+            var defender = new List<Vector3> { new Vector3(8f, 0f, -3f) };   // más cerca de la portería, fuera de la línea
+            var mates = new List<Vector3> { new Vector3(5f, 0f, 4f) };
+            var early = Decide(self, mates, defender, null, S.MinHoldBeforePass, passes: 0, minPasses: 2);
+            Assert.AreEqual(AttackAction.Pass, early.Action);
+            Assert.AreEqual(0, early.PassIndex);
+            Assert.AreEqual(AttackAction.Shoot, Decide(self, mates, defender, null, S.MinHoldBeforePass, passes: 2, minPasses: 2).Action);
+        }
+
+        [Test]
+        public void Breakaway_ShootsWithoutPasses()
+        {
+            var behind = new List<Vector3> { new Vector3(3f, 0f, 0f) };   // nadie entre él y la portería
+            var mates = new List<Vector3> { new Vector3(5f, 0f, 4f) };
+            Assert.AreEqual(AttackAction.Shoot, Decide(new Vector3(6f, 0f, 0f), mates, behind, null, 1f, passes: 0, minPasses: 2).Action);
+        }
+
+        [Test]
+        public void NotOpen_ShootsOnlyWhenSpeculative()
+        {
+            var self = new Vector3(6f, 0f, 0f);
+            var blocker = new List<Vector3> { new Vector3(8f, 0f, 0.3f) };
+            Assert.AreNotEqual(AttackAction.Shoot, Decide(self, None, blocker).Action);
+            Assert.AreEqual(AttackAction.Shoot, Decide(self, None, blocker, speculative: true).Action);
+        }
+
+        [Test]
+        public void Marked_PassesToClearlyMoreOpenTeammate()
+        {
+            var self = new Vector3(3f, 0f, 0f);
+            var marker = new List<Vector3> { new Vector3(3f, 0f, 2f) };   // a 2 m: no presiona, pero no está libre
+            var mates = new List<Vector3> { new Vector3(2f, 0f, -5f) };
+            var choice = Decide(self, mates, marker, null, S.MinHoldBeforePass);
             Assert.AreEqual(AttackAction.Pass, choice.Action);
             Assert.AreEqual(0, choice.PassIndex);
         }

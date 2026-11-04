@@ -53,4 +53,33 @@ namespace Waterpulse.Tests.EditMode
             Assert.AreEqual(1f, new VolumeSetting(new MemoryStore(), Key, 2f).Value, 1e-5f, "valor por defecto");
         }
     }
+
+    // Controles elegidos en Opcions: teclado o teclado + ratón
+    public class ControlSchemeSettingTests
+    {
+        class MemoryStore : ISettingsStore
+        {
+            public readonly Dictionary<string, float> Values = new Dictionary<string, float>();
+            public bool TryGetFloat(string key, out float value) => Values.TryGetValue(key, out value);
+            public void SetFloat(string key, float value) => Values[key] = value;
+        }
+
+        const string Key = "test.controls";
+
+        [Test]
+        public void NeverChosen_IsMouse()
+        {
+            Assert.IsTrue(new ControlSchemeSetting(new MemoryStore(), Key).UseMouse);
+        }
+
+        [Test]
+        public void Choice_IsSaved_AndCanGoBack()
+        {
+            var store = new MemoryStore();
+            new ControlSchemeSetting(store, Key).Set(true);
+            Assert.IsTrue(new ControlSchemeSetting(store, Key).UseMouse, "ratón guardado");
+            new ControlSchemeSetting(store, Key).Set(false);
+            Assert.IsFalse(new ControlSchemeSetting(store, Key).UseMouse, "vuelta al teclado");
+        }
+    }
 }

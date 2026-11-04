@@ -1,7 +1,14 @@
 {
     "name": "Waterpulse.Brains",
     "rootNamespace": "Waterpulse.Brains",
-    "references": ["Waterpulse.Core", "Waterpulse.Config", "Waterpulse.Gameplay", "Waterpulse.AI", "Unity.InputSystem"],
+    "references": [
+        "Waterpulse.Core",
+        "Waterpulse.Config",
+        "Waterpulse.Gameplay",
+        "Waterpulse.AI",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

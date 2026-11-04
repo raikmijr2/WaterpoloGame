@@ -1,12 +1,16 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using Waterpulse.Config;
 using Waterpulse.Core;
+using Waterpulse.Gameplay;
 
 namespace Waterpulse.Brains
 {
     // Input del jugador humano. ControlSwitcher lo asigna al jugador que controla en cada momento.
     // Teclado, mando (stick izquierdo, A, B, Y, RB, LB) y controles táctiles (TouchInput), los tres a la vez.
+    // Con "Controls: Ratolí" en Opcions, además: clic derecho = J (pasar o robar), clic izquierdo = K (tirar) y doble clic
+    // izquierdo = L (súper xut; sin pelota, Torpede; con el portero, el muro). Los clics sobre botones de la pantalla no cuentan
     // Nadar lento: con Espacio (o LB) el stick se escala; en táctil basta con inclinar poco el joystick
     public class HumanBrain : MonoBehaviour, IPlayerBrain
     {
@@ -18,6 +22,13 @@ namespace Waterpulse.Brains
         InputAction ability;
         InputAction dash;
         InputAction slow;
+        InputAction mouseLeft;
+        InputAction mouseRight;
+        bool shootPending;          // primer clic izquierdo esperando un posible segundo (doble clic)
+        float shootClickAt;
+
+        // Jugador que lleva ahora (lo pone ControlSwitcher): con el tiro cargando, el clic suelta sin esperar
+        public PlayerController Controlled { get; set; }
 
         void Awake()
         {
@@ -46,6 +57,9 @@ namespace Waterpulse.Brains
             dash.AddBinding("<Keyboard>/rightShift");
             dash.AddBinding("<Gamepad>/rightShoulder");
 
+            mouseLeft = new InputAction("MouseShoot", InputActionType.Button, "<Mouse>/leftButton");
+            mouseRight = new InputAction("MousePass", InputActionType.Button, "<Mouse>/rightButton");
+
             slow = new InputAction("Slow", InputActionType.Button);
             slow.AddBinding("<Keyboard>/space");
             slow.AddBinding("<Gamepad>/leftShoulder");
@@ -59,6 +73,8 @@ namespace Waterpulse.Brains
             ability.Enable();
             dash.Enable();
             slow.Enable();
+            mouseLeft.Enable();
+            mouseRight.Enable();
         }
 
         void OnDisable()
@@ -69,6 +85,8 @@ namespace Waterpulse.Brains
             ability.Disable();
             dash.Disable();
             slow.Disable();
+            mouseLeft.Disable();
+            mouseRight.Disable();
         }
 
         void OnDestroy()
@@ -79,6 +97,8 @@ namespace Waterpulse.Brains
             ability.Dispose();
             dash.Dispose();
             slow.Dispose();
+            mouseLeft.Dispose();
+            mouseRight.Dispose();
         }
 
         public PlayerIntent GetIntent()
@@ -88,14 +108,56 @@ namespace Waterpulse.Brains
             // El joystick táctil manda si se está tocando más que el teclado o el mando
             Vector2 touch = Vector2.ClampMagnitude(TouchInput.Move, 1f);
             if (touch.sqrMagnitude > stick.sqrMagnitude) stick = touch;
+            ReadMouse(out bool mousePass, out bool mouseShoot, out bool mouseAbility);
             return new PlayerIntent
             {
                 Move = stick,
-                Pass = pass.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Pass),
-                Shoot = shoot.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Shoot),
-                Ability = ability.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Ability),
+                Pass = pass.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Pass) | mousePass,
+                Shoot = shoot.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Shoot) | mouseShoot,
+                Ability = ability.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Ability) | mouseAbility,
                 Dash = dash.WasPressedThisFrame() | TouchInput.Consume(TouchButton.Dash),
             };
+        }
+
+        // Clics del modo ratón. El izquierdo espera mouseDoubleClickWindow por si llega el segundo (doble clic = súper xut);
+        // si no llega, tira (empieza a cargar). Cargando el tiro, el clic suelta al momento
+        void ReadMouse(out bool passPressed, out bool shootPressed, out bool abilityPressed)
+        {
+            passPressed = shootPressed = abilityPressed = false;
+            if (!ControlPreferences.UseMouse)
+            {
+                shootPending = false;
+                return;
+            }
+
+            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            passPressed = mouseRight.WasPressedThisFrame() && !overUi;
+            bool click = mouseLeft.WasPressedThisFrame() && !overUi;
+            float now = Time.unscaledTime;
+
+            if (click && Controlled != null && Controlled.IsChargingShot)
+            {
+                shootPending = false;
+                shootPressed = true;
+                return;
+            }
+            if (click && shootPending && now - shootClickAt <= config.mouseDoubleClickWindow)
+            {
+                shootPending = false;
+                abilityPressed = true;
+                return;
+            }
+            if (click)
+            {
+                shootPending = true;
+                shootClickAt = now;
+                return;
+            }
+            if (shootPending && now - shootClickAt > config.mouseDoubleClickWindow)
+            {
+                shootPending = false;
+                shootPressed = true;
+            }
         }
     }
 }

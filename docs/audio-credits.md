@@ -30,5 +30,8 @@ Dels sons de Freesound s'ha fet servir la vista prèvia OGG d'alta qualitat. Del
 | `ui_move.ogg` | select_001 | Kenney | [Kenney: Interface Sounds](https://kenney.nl/assets/interface-sounds) |
 | `ui_confirm.ogg` | confirmation_001 | Kenney | ídem |
 | `ability_no_energy.ogg` | error_007 | Kenney | ídem |
+| `goal_applause.ogg` | Fireworks With Applause Happy People (retallat: del segon 1 al 10, més fort i comprimit, amb entrada i sortida suaus) | Almitory | [OpenGameArt](https://opengameart.org/content/fireworks-with-applause-happy-people) (multillicència, entre elles CC0) |
+| `goal_cannon.ogg` | `cannon_02.ogg` del pack 25 CC0 bang / firework SFX | rubberduck | [OpenGameArt](https://opengameart.org/content/25-cc0-bang-firework-sfx) |
+| `goal_fireworks.ogg` | `fw_04.ogg` del pack 25 CC0 bang / firework SFX | rubberduck | [OpenGameArt](https://opengameart.org/content/25-cc0-bang-firework-sfx) |
 
 Per canviar un so, poseu-ne un altre amb el mateix nom (`.ogg`, `.wav` o `.mp3`) i torneu a generar les escenes. Si en falta algun, `Waterpulse/Generate Sounds` en crea un de provisional sintetitzat.

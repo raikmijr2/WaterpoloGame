@@ -112,11 +112,25 @@ namespace Waterpulse.EditorTools
         const string MobileButtonSprite = "button";
         const string MobileStickBaseSprite = "joystick_base";
         const string MobileKnobSprite = "joystick_knob";
-        // Mur d'Aigua: cortina de agua delante de la portería (solo aspecto; para los tiros al llegar a su x)
-        const float WaterWallInset = 0.6f;      // distancia de la línea de gol hacia el campo (m)
-        const float WaterWallHeight = 1.8f;
-        const float WaterWallSink = 0.3f;       // parte de la cortina bajo el agua
-        const float WaterWallThickness = 0.12f;
+        // Mur de Ferro: placa de metal delante de la portería (para los tiros al llegar a su x)
+        const float WaterWallInset = 0.35f;      // distancia de la línea de gol hacia el campo (m)
+        const float WaterWallHeight = 2.2f;
+        const float WaterWallSink = 0.3f;       // parte de la placa bajo el agua
+        const float WaterWallThickness = 0.15f;
+        const float WallWaveHeight = 0.04f;     // anillo de la onada, justo encima del agua
+        // Muro de metal: rejilla de paneles del modelo, pilares y franja de aviso
+        const string WallModelPath = RootDir + "/Art/Models/ScifiWalls/ScifiModularWalls.obj";
+        const int MetalWallColumns = 4;
+        const int MetalWallRows = 2;
+        const float MetalPanelSize = 0.95f;     // 4 × 0,95 = 3,8 m: tapa la boca (3 m) y los postes
+        const float MetalPanelThickness = 0.2f;
+        const float MetalWallSink = 0.35f;      // parte bajo el agua
+        const float MetalPillarWidth = 0.24f;
+        const float MetalPillarDepth = 0.32f;
+        const float MetalPillarExtra = 0.25f;   // los pilares sobresalen por arriba
+        const float MetalBeamHeight = 0.16f;
+        const string HazardTexturePath = RootDir + "/Art/Materials/HazardStripes.png";
+        static readonly Color WallWaveColor = new Color(0.9f, 0.97f, 1f, 0.85f);
         const float WaterWallOverhang = 0.6f;   // lo que sobresale de la boca de la portería, en total
         const float SuitHeight = 0.12f;       // franja del bañador a la altura del agua
 
@@ -126,7 +140,29 @@ namespace Waterpulse.EditorTools
         const float PlayerTrailTime = 0.5f;
         const float PlayerTrailWidth = 0.7f;
         const float FxBurstDuration = 0.5f;
-        const int FxSortingOrder = 5;          // duración de una ráfaga (las partículas viven lo suyo)
+        const int FxSortingOrder = 5;
+        // Confeti de la celebración del gol (solo aspecto)
+        const float ConfettiCannonHeight = 3.5f;        // altura de los cañones (m)
+        const float ConfettiCornerOut = 0.6f;           // fuera de la piscina, en cada esquina
+        const float ConfettiCannonLift = 2.4f;          // cuánto apuntan hacia arriba (alto: el confeti cae cerca de su esquina)
+        const float ConfettiConeAngle = 18f;
+        const float ConfettiConeRadius = 0.3f;
+        static readonly Vector2 ConfettiSpeed = new Vector2(5f, 8.5f);   // poco: que no cruce toda la piscina
+        static readonly Vector2 ConfettiSize = new Vector2(0.14f, 0.24f);
+        static readonly Vector2 ConfettiLifetime = new Vector2(9f, 11f);   // incluye el rato flotando en el agua
+        const float ConfettiGravity = 0.35f;
+        const float ConfettiDrag = 1.2f;
+        const float ConfettiSpin = 8f;                  // giro (rad/s) a toda velocidad
+        const float ConfettiSpinFullSpeed = 3f;         // velocidad (m/s) a la que gira del todo
+        const float ConfettiFlutter = 0.4f;
+        const float ConfettiFlutterFrequency = 0.5f;
+        const float ConfettiFloatHeight = 0.05f;        // por encima del agua plana (las olas son de ~3,5 cm)
+        const float ConfettiCollisionRadius = 0.3f;
+        const float ConfettiFadeStart = 0.85f;          // fracción de la vida a la que empieza a desvanecerse
+        const short ConfettiBurst = 100;
+        const short ConfettiSecondBurst = 40;
+        const float ConfettiSecondBurstTime = 0.08f;
+        const int ConfettiMaxParticles = 400;          // duración de una ráfaga (las partículas viven lo suyo)
         static readonly Color DropColor = new Color(0.75f, 0.9f, 1f, 0.9f);     // gotas
         static readonly Color FoamColor = new Color(1f, 1f, 1f, 0.55f);         // espuma sobre el agua
 
@@ -143,7 +179,7 @@ namespace Waterpulse.EditorTools
         static readonly Fx BoostSpray = new Fx { Name = "BoostSpray", Rotation = new Vector3(-60f, 180f, 0f), Continuous = true, Lifetime = 0.5f, Speed = 2.6f, Size = 0.17f,
                                                  Gravity = 1.2f, Angle = 35f, Radius = 0.45f };
         static readonly Fx BallSplash = new Fx { Name = "Splash", Continuous = true, Lifetime = 0.45f, Speed = 2.2f, Size = 0.12f, Gravity = 1.4f, Angle = 40f, Radius = 0.15f };
-        static readonly Fx GoalSplash = new Fx { Name = "GoalSplash", Continuous = true, Lifetime = 0.9f, Speed = 5f, Size = 0.2f, Gravity = 1.3f, Angle = 50f, Radius = 0.4f };
+        static readonly Fx GoalSplash = new Fx { Name = "GoalSplash", Continuous = true, Lifetime = 1.2f, Speed = 7.5f, Size = 0.24f, Gravity = 1.3f, Angle = 40f, Radius = 0.6f };
         const string PhysicsDir = RootDir + "/Art/Physics";
 
 
@@ -186,21 +222,22 @@ namespace Waterpulse.EditorTools
             BuildGoal(config, mats, pool.transform, -1f, TeamSide.Home);
             BuildGoal(config, mats, pool.transform, 1f, TeamSide.Away);
             var ball = BuildBall(config, mats, pool);
+            BuildGoalCelebration(config, mats, pool);
 
             var abilities = new AbilitySetup
             {
                 Energy = LoadOrCreate<EnergyConfigSO>(EnergyConfigPath),
                 XutTragol = LoadOrCreate<AbilityDefinitionSO>(XutTragolPath, InitXutTragol),
                 TorpedeBlau = LoadOrCreate<AbilityDefinitionSO>(TorpedeBlauPath, InitTorpedeBlau),
-                MurAigua = LoadOrCreate<AbilityDefinitionSO>(MurAiguaPath, InitMurAigua),
+                MurAigua = UpgradeWall(LoadOrCreate<AbilityDefinitionSO>(MurAiguaPath, InitMurAigua)),
                 KeeperEnergy = LoadOrCreate<EnergyConfigSO>(KeeperEnergyConfigPath, InitKeeperEnergy),
                 Levels = levels,
                 BallTrail = ball.GetComponent<TrailRenderer>(),
             };
 
             // TeamAI agresivo para el rival (persigue, presiona, corta, pasa y tira); pasivo para los compañeros del humano (solo marcajes)
-            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, levels, false), abilities);
-            var awayAI = BuildTeamAI(TeamSide.Away, ball, levels, true);
+            BuildTeam(config, mats, ball, pool, TeamSide.Home, mats.HomeCap, mats.HomeSuit, BuildTeamAI(TeamSide.Home, ball, levels, false, config, pool), abilities);
+            var awayAI = BuildTeamAI(TeamSide.Away, ball, levels, true, config, pool);
             if (withRivals) BuildTeam(config, mats, ball, pool, TeamSide.Away, mats.AwayCap, mats.AwaySuit, awayAI, abilities);
 
             var flow = BuildMatchSystems(config, ball, pool, abilities.Energy, LoadOrCreate<ScoringConfigSO>(ScoringConfigPath),
@@ -253,9 +290,37 @@ namespace Waterpulse.EditorTools
         // Niveles de dificultad en el orden del menú (decidido: Fàcil y Difícil). Solo crea los que faltan
         internal static DifficultySO[] DifficultyLevels() => new[]
         {
-            LoadOrCreate<DifficultySO>(EasyDifficultyPath, InitEasy),
-            LoadOrCreate<DifficultySO>(HardDifficultyPath, InitHard),
+            UpgradeDifficulty(LoadOrCreate<DifficultySO>(EasyDifficultyPath, InitEasy), InitEasyTeamPlay),
+            UpgradeDifficulty(LoadOrCreate<DifficultySO>(HardDifficultyPath, InitHard), InitHardTeamPlay),
         };
+
+        // Versión de los valores de dificultad: 1 = juego en triángulo (tiro "porque sí" y pases antes de tirar)
+        const int DifficultyGeneratorVersion = 1;
+
+        // Rellena en los niveles ya creados los valores añadidos después, una sola vez (no pisa lo que se ajuste luego)
+        static DifficultySO UpgradeDifficulty(DifficultySO d, System.Action<DifficultySO> teamPlay)
+        {
+            if (d.generatorVersion >= DifficultyGeneratorVersion) return d;
+            teamPlay(d);
+            d.generatorVersion = DifficultyGeneratorVersion;
+            EditorUtility.SetDirty(d);
+            AssetDatabase.SaveAssets();
+            return d;
+        }
+
+        // Fàcil: tira más veces "porque sí" (menos lista) y no espera a pasar antes de tirar
+        static void InitEasyTeamPlay(DifficultySO d)
+        {
+            d.speculativeShotChance = 0.2f;
+            d.minPassesBeforeShot = 0;
+        }
+
+        // Difícil: casi siempre busca al desmarcado, tras al menos dos pases
+        static void InitHardTeamPlay(DifficultySO d)
+        {
+            d.speculativeShotChance = 0.08f;
+            d.minPassesBeforeShot = 2;
+        }
 
         // Fàcil: reacciona tarde, presiona poco, nada más lento, no usa habilidades, falla más el verde y sale la guía
         static void InitEasy(DifficultySO d)
@@ -283,13 +348,32 @@ namespace Waterpulse.EditorTools
             d.showControlHints = false;
         }
 
-        // Mur d'Aigua del portero: con 100 de energía, 2 s de muro que para todos los tiros (decidido por el usuario)
+        // Muro del portero: con 100 de energía para todos los tiros (decidido por el usuario; ahora Mur de Ferro, 5 s)
         static void InitMurAigua(AbilityDefinitionSO a)
         {
             a.kind = AbilityKind.Wall;
-            a.displayName = "Mur d'Aigua";
             a.cost = 100f;
-            a.duration = 2f;
+            InitMurFerro(a);
+        }
+
+        // Versión de los valores del muro: 1 = Mur de Ferro (cae, dura 5 s y empuja; decidido por el usuario)
+        const int WallGeneratorVersion = 1;
+
+        static void InitMurFerro(AbilityDefinitionSO a)
+        {
+            a.displayName = "Mur de Ferro";
+            a.duration = 5f;
+            a.generatorVersion = WallGeneratorVersion;
+        }
+
+        // Pasa el muro ya creado a Mur de Ferro una sola vez (no pisa lo que se ajuste luego)
+        static AbilityDefinitionSO UpgradeWall(AbilityDefinitionSO a)
+        {
+            if (a.generatorVersion >= WallGeneratorVersion) return a;
+            InitMurFerro(a);
+            EditorUtility.SetDirty(a);
+            AssetDatabase.SaveAssets();
+            return a;
         }
 
         // Energía del portero: empieza vacía y se llena sola en ~60 s (decidido por el usuario)
@@ -311,7 +395,7 @@ namespace Waterpulse.EditorTools
             public TrailRenderer BallTrail;
         }
 
-        static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO[] levels, bool aggressive)
+        static TeamAI BuildTeamAI(TeamSide team, BallController ball, DifficultySO[] levels, bool aggressive, GameConfigSO config, PoolBounds pool)
         {
             var go = new GameObject("TeamAI_" + team);
             var teamAI = go.AddComponent<TeamAI>();
@@ -319,6 +403,8 @@ namespace Waterpulse.EditorTools
             SetRef(teamAI, "ball", ball);
             SetRefs(teamAI, "levels", levels);
             SetFlag(teamAI, "aggressive", aggressive);
+            SetRef(teamAI, "config", config);
+            SetRef(teamAI, "pool", pool);
             return teamAI;
         }
 
@@ -388,6 +474,112 @@ namespace Waterpulse.EditorTools
                 CrossLine(lines, "Line5m_" + side, (hx - Line5m) * s, c.poolWidth, mats.LineYellow);
             }
             return bounds;
+        }
+
+        // Celebración del gol (GoalCelebration): un cañón de confeti en cada esquina de la piscina, apuntando al centro y
+        // hacia arriba. El confeti son cuadraditos que giran según su velocidad, caen frenados como papel (gravedad baja y
+        // rozamiento), chocan con el plano del agua y se quedan flotando hasta desvanecerse
+        static void BuildGoalCelebration(GameConfigSO c, Materials mats, PoolBounds pool)
+        {
+            var root = new GameObject("GoalCelebration").transform;
+            root.position = pool.Center;
+            var water = new GameObject("WaterPlane").transform;   // donde se posa el confeti
+            water.SetParent(root, false);
+            water.localPosition = Vector3.up * ConfettiFloatHeight;
+
+            var cannons = new ParticleSystem[4];
+            int i = 0;
+            foreach (var (sx, sz) in new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) })
+            {
+                var position = new Vector3(sx * (c.poolLength * 0.5f + ConfettiCornerOut), ConfettiCannonHeight, sz * (c.poolWidth * 0.5f + ConfettiCornerOut));
+                Vector3 toCenter = -new Vector3(position.x, 0f, position.z).normalized;
+                cannons[i++] = ConfettiCannon(root, $"Confetti_{i}", position, toCenter + Vector3.up * ConfettiCannonLift, water, mats.Confetti);
+            }
+
+            var celebration = root.gameObject.AddComponent<GoalCelebration>();
+            SetRef(celebration, "config", c);
+            SetRefs(celebration, "cannons", cannons);
+            SetRef(celebration, "stands", pool.GetComponentInChildren<Gradas>());
+        }
+
+        static ParticleSystem ConfettiCannon(Transform parent, string name, Vector3 localPosition, Vector3 direction, Transform water, Material material)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPosition;
+            go.transform.rotation = Quaternion.LookRotation(direction);   // el cono emite hacia su +Z
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = ps.main;
+            main.duration = FxBurstDuration;
+            main.loop = false;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(ConfettiLifetime.x, ConfettiLifetime.y);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(ConfettiSpeed.x, ConfettiSpeed.y);
+            main.startSize = new ParticleSystem.MinMaxCurve(ConfettiSize.x, ConfettiSize.y);
+            main.startRotation3D = true;
+            var anyAngle = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            main.startRotationX = anyAngle;
+            main.startRotationY = anyAngle;
+            main.startRotationZ = anyAngle;
+            main.gravityModifier = ConfettiGravity;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = ConfettiMaxParticles;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, ConfettiBurst), new ParticleSystem.Burst(ConfettiSecondBurstTime, ConfettiSecondBurst) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = ConfettiConeAngle;
+            shape.radius = ConfettiConeRadius;
+
+            // Frenado de papel: cae despacio y planea
+            var limit = ps.limitVelocityOverLifetime;
+            limit.enabled = true;
+            limit.limit = ConfettiSpeed.y;
+            limit.drag = ConfettiDrag;
+
+            // Revolotea mientras vuela; en el agua casi quieto
+            var spin = ps.rotationBySpeed;
+            spin.enabled = true;
+            spin.separateAxes = true;
+            spin.x = new ParticleSystem.MinMaxCurve(-ConfettiSpin, ConfettiSpin);
+            spin.y = new ParticleSystem.MinMaxCurve(-ConfettiSpin, ConfettiSpin);
+            spin.z = new ParticleSystem.MinMaxCurve(-ConfettiSpin, ConfettiSpin);
+            spin.range = new Vector2(0f, ConfettiSpinFullSpeed);
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = ConfettiFlutter;
+            noise.frequency = ConfettiFlutterFrequency;
+
+            // Se posa en el agua y se queda (sin rebote ni perder vida)
+            var collision = ps.collision;
+            collision.enabled = true;
+            collision.type = ParticleSystemCollisionType.Planes;
+            collision.SetPlane(0, water);
+            collision.dampen = 1f;
+            collision.bounce = 0f;
+            collision.lifetimeLoss = 0f;
+            collision.radiusScale = ConfettiCollisionRadius;
+
+            var fade = ps.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, ConfettiFadeStart), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Mesh;
+            renderer.mesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
+            renderer.alignment = ParticleSystemRenderSpace.Local;
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.sortingOrder = FxSortingOrder;
+            return ps;
         }
 
         // Gradas con público de huevos que saltan (Gradas, del equipo; antes se ponían a mano en la escena y se perdían
@@ -735,7 +927,7 @@ namespace Waterpulse.EditorTools
             SetRef(playerAnimator, "player", controller);
         }
 
-        // Portero: energía propia (se recarga sola) y el Mur d'Aigua, con su muro delante de la portería que defiende.
+        // Portero: energía propia (se recarga sola) y el Mur de Ferro, con su muro delante de la portería que defiende.
         // El portero rival (IA) lo levanta solo cuando le tiran; el del humano, con L cuando lo controla (E)
         static void AddKeeperWall(GameConfigSO c, GameObject go, TeamSide team, PoolBounds pool, AbilitySetup setup, Materials mats)
         {
@@ -744,20 +936,50 @@ namespace Waterpulse.EditorTools
             var controller = go.GetComponent<PlayerController>();
             SetRef(controller, "wall", setup.MurAigua);
 
-            // El muro, en la boca de la portería que defiende (un poco hacia el campo)
+            // El Mur de Ferro, justo delante de los postes de la portería que defiende: muro de paneles de metal que cae,
+            // cortina de agua y neblina al tocar el agua, rociada que viaja con la onada, esquitxada en cada empujado y
+            // anillo de espuma
             float inward = team.AttackSign();
             var wallGo = new GameObject("WaterWall_" + team);
             wallGo.transform.position = pool.Center + Vector3.right * (inward * (WaterWallInset - pool.HalfLength));
-            var curtain = Prim(PrimitiveType.Cube, "Curtain", wallGo.transform, new Vector3(0f, WaterWallHeight * 0.5f - WaterWallSink, 0f),
-                               new Vector3(WaterWallThickness, WaterWallHeight, c.goalWidth + WaterWallOverhang), mats.WaterWall, false, false);
+            var curtain = BuildMetalWall(wallGo.transform, mats);
+            float wallWidth = MetalWallColumns * MetalPanelSize;
             var spray = Particles(wallGo.transform, new Fx
             {
                 Name = "WallSpray", Rotation = new Vector3(0f, 90f, 0f), Shape = ParticleSystemShapeType.SingleSidedEdge, Continuous = true,
-                Radius = (c.goalWidth + WaterWallOverhang) * 0.5f, Lifetime = 0.7f, Speed = 3.5f, Size = 0.25f, Gravity = 0.9f,
+                Radius = wallWidth * 0.5f, Lifetime = 1.1f, Speed = 8f, Size = 0.35f, Gravity = 1.2f,
             }, mats.Splash);
+            var mist = Particles(wallGo.transform, new Fx
+            {
+                Name = "WallMist", Rotation = new Vector3(0f, 90f, 0f), Shape = ParticleSystemShapeType.SingleSidedEdge, Continuous = true,
+                Radius = wallWidth * 0.5f, Lifetime = 1.6f, Speed = 1.8f, Size = 1.4f, Gravity = -0.05f, Grow = true,
+                Color = new Color(1f, 1f, 1f, 0.35f),
+            }, mats.Splash);
+            var waveSpray = WaveSpray(wallGo.transform, inward, mats.Splash);
+            var pushSplash = Particles(wallGo.transform, new Fx
+            {
+                Name = "PushSplash", Continuous = true, Lifetime = 0.7f, Speed = 5f, Size = 0.26f, Gravity = 1.3f, Angle = 40f, Radius = 0.35f,
+            }, mats.Splash);
+            var waveGo = new GameObject("Wave", typeof(SpriteRenderer));
+            waveGo.transform.SetParent(wallGo.transform, false);
+            waveGo.transform.localPosition = new Vector3(0f, pool.WaterY - wallGo.transform.position.y + WallWaveHeight, 0f);
+            waveGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var wave = waveGo.GetComponent<SpriteRenderer>();
+            wave.sprite = UiSpriteGenerator.Load(UiSpriteGenerator.CircleRing);
+            wave.color = WallWaveColor;
+            wave.sortingOrder = FxSortingOrder;
+            wave.shadowCastingMode = ShadowCastingMode.Off;
             var wall = wallGo.AddComponent<WaterWall>();
+            SetRef(wall, "config", c);
+            SetRef(wall, "pool", pool);
+            SetEnum(wall, "team", (int)team);
             SetRef(wall, "curtain", curtain);
+            SetFloat(wall, "plateHeight", MetalWallRows * MetalPanelSize + MetalWallSink);
             SetRef(wall, "spray", spray);
+            SetRef(wall, "mist", mist);
+            SetRef(wall, "waveSpray", waveSpray);
+            SetRef(wall, "pushSplash", pushSplash);
+            SetRef(wall, "wave", wave);
 
             var ability = go.AddComponent<MurAiguaAbility>();
             SetRef(ability, "splash", Particles(go.transform, AbilitySplash, mats.Splash));
@@ -766,6 +988,142 @@ namespace Waterpulse.EditorTools
             SetRef(keeper, "wall", wall);
             SetFlag(keeper, "useWall", team == TeamSide.Away);   // solo el portero rival lo usa solo
             SetRefs(keeper, "levels", setup.Levels);              // y solo en los niveles con habilidades
+        }
+
+        // Muro de metal: rejilla de paneles del modelo "Scifi Modular Walls" (CC0; rejas abajo, cruces arriba) entre dos
+        // pilares oscuros y con una franja de aviso amarilla y negra arriba. Sin el modelo, una placa de metal lisa.
+        // Devuelve la raíz que se mueve (cae y se hunde)
+        static GameObject BuildMetalWall(Transform parent, Materials mats)
+        {
+            float width = MetalWallColumns * MetalPanelSize;
+            float height = MetalWallRows * MetalPanelSize;
+            float bottom = -MetalWallSink;
+            var root = new GameObject("Curtain");
+            root.transform.SetParent(parent, false);
+
+            // Paneles en el plano YZ (de cara al campo)
+            var panels = new GameObject("Panels").transform;
+            panels.SetParent(root.transform, false);
+            panels.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            var meshes = LoadWallMeshes();
+            for (int row = 0; row < MetalWallRows; row++)
+            {
+                for (int col = 0; col < MetalWallColumns; col++)
+                {
+                    var cell = new GameObject($"Panel_{row}_{col}").transform;
+                    cell.SetParent(panels, false);
+                    cell.localPosition = new Vector3((col + 0.5f) * MetalPanelSize - width * 0.5f, bottom + (row + 0.5f) * MetalPanelSize, 0f);
+                    string[] parts = row == 0
+                        ? new[] { col == 0 || col == MetalWallColumns - 1 ? "barredwall" : "cutwall" }
+                        : new[] { "crossbar_Frame", "crossbar_bar1", "crossbar_bar2" };
+                    if (!PlacePanel(cell, parts, meshes, mats.WaterWall))
+                        Prim(PrimitiveType.Cube, "Plate", cell, Vector3.zero, new Vector3(MetalPanelSize, MetalPanelSize, MetalPanelThickness), mats.WaterWall, false);
+                    else if (row > 0)
+                        Prim(PrimitiveType.Cube, "Backing", cell, Vector3.zero, new Vector3(MetalPanelSize * 0.82f, MetalPanelSize * 0.82f, 0.03f), mats.MetalDark, false);
+                }
+            }
+
+            // Pilares a los lados y franja de aviso arriba
+            float pillarHeight = height + MetalPillarExtra;
+            foreach (float z in new[] { -1f, 1f })
+                Prim(PrimitiveType.Cube, z < 0f ? "Pillar_Left" : "Pillar_Right", root.transform,
+                     new Vector3(0f, bottom + pillarHeight * 0.5f, z * (width * 0.5f + MetalPillarWidth * 0.5f)),
+                     new Vector3(MetalPillarDepth, pillarHeight, MetalPillarWidth), mats.MetalDark, false);
+            Prim(PrimitiveType.Cube, "HazardBeam", root.transform, new Vector3(0f, bottom + height + MetalBeamHeight * 0.5f, 0f),
+                 new Vector3(MetalPillarDepth * 0.9f, MetalBeamHeight, width), mats.Hazard, false);
+            return root;
+        }
+
+        // Coloca las piezas de un panel del modelo escaladas a su celda (todas comparten el espacio del modelo: se
+        // centran y escalan con la primera). Devuelve false si falta el modelo o alguna pieza
+        static bool PlacePanel(Transform cell, string[] parts, Mesh[] meshes, Material material)
+        {
+            var found = new Mesh[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                found[i] = System.Array.Find(meshes, m => m != null && m.name.StartsWith(parts[i]));
+                if (found[i] == null) return false;
+            }
+            Bounds reference = found[0].bounds;
+            float size = Mathf.Max(reference.size.x, reference.size.y);
+            if (size < 0.001f) return false;
+            float scale = MetalPanelSize / size;
+            foreach (var mesh in found)
+            {
+                var go = new GameObject(mesh.name, typeof(MeshFilter), typeof(MeshRenderer));
+                go.transform.SetParent(cell, false);
+                go.transform.localScale = Vector3.one * scale;
+                go.transform.localPosition = -reference.center * scale;
+                go.GetComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = go.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = material;
+            }
+            return true;
+        }
+
+        static Mesh[] LoadWallMeshes()
+        {
+            var list = new System.Collections.Generic.List<Mesh>();
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(WallModelPath))
+                if (asset is Mesh mesh) list.Add(mesh);
+            if (list.Count == 0) Debug.LogWarning("Mur de Ferro: no se encuentra el modelo " + WallModelPath + "; se usa una placa lisa");
+            return list.ToArray();
+        }
+
+        // Rociada de la onada: medio círculo de gotas hacia el campo que salen a la velocidad de la cresta y vuelan en arco
+        static ParticleSystem WaveSpray(Transform parent, float inward, Material material)
+        {
+            var go = new GameObject("WaveSpray");
+            go.transform.SetParent(parent, false);
+            // El círculo de la forma está en el plano XY local: Z local hacia arriba e Y local hacia el campo
+            go.transform.rotation = Quaternion.LookRotation(Vector3.up, Vector3.right * inward);
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = ps.main;
+            main.duration = FxBurstDuration;
+            main.loop = true;
+            main.playOnAwake = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.2f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(6.5f, 9.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.38f);
+            main.startColor = DropColor;
+            main.gravityModifier = 1.3f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 800;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = 0.5f;
+            shape.radiusThickness = 0f;
+            shape.arc = 180f;
+            // El arco empieza en X local: se gira -90° para que quede centrado en Y local (hacia el campo)
+            shape.rotation = new Vector3(0f, 0f, -90f);
+
+            // Además de salir hacia fuera, suben: vuelan en arco y caen como una ola que rompe
+            var lift = ps.velocityOverLifetime;
+            lift.enabled = true;
+            lift.space = ParticleSystemSimulationSpace.World;
+            lift.x = new ParticleSystem.MinMaxCurve(0f);
+            lift.y = new ParticleSystem.MinMaxCurve(3.5f);
+            lift.z = new ParticleSystem.MinMaxCurve(0f);
+
+            var fade = ps.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.6f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.sortingOrder = FxSortingOrder;
+            return ps;
         }
 
         // Estamina, energía y las dos habilidades de un jugador de campo
@@ -861,7 +1219,8 @@ namespace Waterpulse.EditorTools
             var root = canvasGo.transform;
 
             BuildPlayerMarkers(canvasGo, cam, ball);   // el primero: queda debajo de los paneles
-            BuildScoreboard(canvasGo, c, flow);
+            var messageBanner = BuildScoreboard(canvasGo, c, flow);
+            BuildGoalFlash(canvasGo, messageBanner);
             BuildAbilityBanner(canvasGo, c);
             BuildPlayerPanel(canvasGo);
 
@@ -1075,7 +1434,7 @@ namespace Waterpulse.EditorTools
 
         // Marcador de retransmisión arriba en el centro: bloque de color de cada equipo con su nombre, goles a los lados del
         // tiempo y un punto volt bajo el equipo con la posesión. Debajo, el bàner de los avisos ("Preparats…", "GOL!"…)
-        static void BuildScoreboard(GameObject canvasGo, GameConfigSO c, MatchFlow flow)
+        static RectTransform BuildScoreboard(GameObject canvasGo, GameConfigSO c, MatchFlow flow)
         {
             var root = canvasGo.transform;
             var board = Box(root, "Scoreboard", Top, new Vector2(860f, 84f), false);
@@ -1114,6 +1473,17 @@ namespace Waterpulse.EditorTools
             SetRef(view, "awayPossession", awayDot.gameObject);
             SetRef(view, "messagePanel", banner.gameObject);
             SetRef(view, "messageLabel", message);
+            return banner;
+        }
+
+        // Destello de pantalla y bàner de "GOL!" que entra grande al marcar (GoalFlashView). Encima del partido y del HUD,
+        // debajo del resumen y la pausa
+        static void BuildGoalFlash(GameObject canvasGo, RectTransform messageBanner)
+        {
+            var flash = StretchedImage(canvasGo.transform, "GoalFlash", Color.clear);
+            var view = canvasGo.AddComponent<GoalFlashView>();
+            SetRef(view, "flash", flash);
+            SetRef(view, "banner", messageBanner);
         }
 
         // Bàner con el nombre de la habilidad al activarse
@@ -1420,7 +1790,8 @@ namespace Waterpulse.EditorTools
         internal class Materials
         {
             public readonly Material Water, Floor, Wall, LineWhite, LineRed, LineYellow, GoalFrame, Net, Body, Nose;
-            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Trail, Splash, WaterWall, HallWall, HallFloor;
+            public readonly Material HomeCap, AwayCap, GoalkeeperCap, HomeSuit, AwaySuit, Ball, Trail, Splash, WaterWall, HallWall, HallFloor, Confetti,
+                                     MetalDark, Hazard;
 
             public Materials()
             {
@@ -1438,13 +1809,62 @@ namespace Waterpulse.EditorTools
                 HomeSuit = Lit("HomeSuit", new Color(0.05f, 0.18f, 0.6f));
                 AwaySuit = Lit("AwaySuit", new Color(0.85f, 0.85f, 0.85f));
                 GoalkeeperCap = Lit("GoalkeeperCap", new Color(0.9f, 0.1f, 0.1f));
-                WaterWall = Lit("WaterWall", new Color(0.65f, 0.88f, 1f, 0.45f), true);
+                WaterWall = Metal("MetalWall", new Color(0.62f, 0.66f, 0.7f));
+                MetalDark = Metal("MetalDark", new Color(0.2f, 0.22f, 0.25f));
+                Hazard = HazardMaterial("Hazard");
                 HallWall = Lit("HallWall", new Color(0.33f, 0.4f, 0.48f));
                 HallFloor = Lit("HallFloor", new Color(0.5f, 0.53f, 0.58f));
                 Ball = Lit("Ball", new Color(1f, 0.85f, 0.1f));
                 Trail = Unlit("Trail", "Sprites/Default");
                 Splash = WaterParticles("Splash");
+                Confetti = ConfettiParticles("Confetti");
                 Nose = Lit("PlayerNose", new Color(0.1f, 0.1f, 0.1f));
+            }
+
+            // Franja de aviso del Mur de Ferro: rayas diagonales amarillas y negras (textura generada si no existe)
+            static Material HazardMaterial(string name)
+            {
+                var m = Lit(name, Color.white);
+                m.SetTexture("_BaseMap", HazardTexture());
+                m.SetTextureScale("_BaseMap", new Vector2(HazardRepeats, 1f));
+                m.SetFloat("_Metallic", 0.3f);
+                m.SetFloat("_Smoothness", 0.5f);
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+
+            const float HazardRepeats = 6f;
+
+            static Texture2D HazardTexture()
+            {
+                if (!File.Exists(HazardTexturePath))
+                {
+                    const int w = 64, h = 16;
+                    var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+                    var yellow = new Color(1f, 0.78f, 0.1f);
+                    var black = new Color(0.08f, 0.08f, 0.08f);
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++)
+                            tex.SetPixel(x, y, ((x + y) / 16) % 2 == 0 ? yellow : black);
+                    File.WriteAllBytes(HazardTexturePath, tex.EncodeToPNG());
+                    Object.DestroyImmediate(tex);
+                    AssetDatabase.ImportAsset(HazardTexturePath);
+                    var importer = (TextureImporter)AssetImporter.GetAtPath(HazardTexturePath);
+                    importer.wrapMode = TextureWrapMode.Repeat;
+                    importer.filterMode = FilterMode.Bilinear;
+                    importer.SaveAndReimport();
+                }
+                return AssetDatabase.LoadAssetAtPath<Texture2D>(HazardTexturePath);
+            }
+
+            // Metal del Mur de Ferro: gris, metálico y bastante pulido
+            static Material Metal(string name, Color color)
+            {
+                var m = Lit(name, color);
+                m.SetFloat("_Metallic", 0.9f);
+                m.SetFloat("_Smoothness", 0.65f);
+                EditorUtility.SetDirty(m);
+                return m;
             }
 
             static Material Lit(string name, Color color, bool transparent = false)
@@ -1470,6 +1890,25 @@ namespace Waterpulse.EditorTools
                     m.renderQueue = (int)RenderQueue.Transparent;
                     m.SetShaderPassEnabled("ShadowCaster", false);
                 }
+                EditorUtility.SetDirty(m);
+                return m;
+            }
+
+            // Confeti: sin iluminación ni textura (el color es el de cada papel), con las dos caras visibles y transparente
+            // para desvanecerse al final
+            static Material ConfettiParticles(string name)
+            {
+                var m = Unlit(name, "Universal Render Pipeline/Particles/Unlit");
+                m.SetTexture("_BaseMap", null);
+                m.SetFloat("_Cull", 0f);
+                m.SetFloat("_Surface", 1f);
+                m.SetFloat("_Blend", 0f);
+                m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                m.SetFloat("_ZWrite", 0f);
+                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                m.SetOverrideTag("RenderType", "Transparent");
+                m.renderQueue = (int)RenderQueue.Transparent;
                 EditorUtility.SetDirty(m);
                 return m;
             }

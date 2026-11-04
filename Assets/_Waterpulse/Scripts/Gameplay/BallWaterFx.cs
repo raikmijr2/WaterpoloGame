@@ -17,7 +17,7 @@ namespace Waterpulse.Gameplay
         [Tooltip("Gotas de la esquitxada al recibir un pase")]
         [SerializeField] int catchDrops = 8;
         [Tooltip("Gotas de la esquitxada del gol")]
-        [SerializeField] int goalDrops = 70;
+        [SerializeField] int goalDrops = 180;
 
         void OnEnable()
         {

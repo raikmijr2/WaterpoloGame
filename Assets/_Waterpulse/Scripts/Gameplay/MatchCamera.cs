@@ -21,6 +21,9 @@ namespace Waterpulse.Gameplay
         GameObject controlled;
         PlayerController controlledKeeper;   // el portero, si es lo que lleva el humano
         float shakeTimer;
+        float shakeDuration;
+        float shakeAmplitude;
+        float zoomTimer;   // golpe de zoom del gol
 
         void Awake() => cam = GetComponent<Camera>();
 
@@ -28,12 +31,16 @@ namespace Waterpulse.Gameplay
         {
             GameEvents.ControlledPlayerChanged += OnControlledChanged;
             GameEvents.RecoverFailed += OnRecoverFailed;
+            GameEvents.Goal += OnGoal;
+            GameEvents.WallLanded += OnWallLanded;
         }
 
         void OnDisable()
         {
             GameEvents.ControlledPlayerChanged -= OnControlledChanged;
             GameEvents.RecoverFailed -= OnRecoverFailed;
+            GameEvents.Goal -= OnGoal;
+            GameEvents.WallLanded -= OnWallLanded;
         }
 
         void OnControlledChanged(GameObject player)
@@ -46,7 +53,26 @@ namespace Waterpulse.Gameplay
         // Temblor pequeño cuando el humano falla un robo con J (no con los de la IA)
         void OnRecoverFailed(GameObject player)
         {
-            if (player != null && player == controlled) shakeTimer = config.cameraShakeDuration;
+            if (player != null && player == controlled) Shake(config.cameraShakeDuration, config.cameraShakeAmplitude);
+        }
+
+        // Gol (de cualquier equipo): temblor fuerte y golpe de zoom, como en el Rocket League
+        void OnGoal(TeamSide team, GameObject scorer)
+        {
+            Shake(config.goalShakeDuration, config.goalShakeAmplitude);
+            zoomTimer = config.goalZoomDuration;
+        }
+
+        // El Mur de Ferro cae: temblor corto
+        void OnWallLanded(GameObject wall) => Shake(config.wallShakeDuration, config.wallShakeAmplitude);
+
+        void Shake(float duration, float amplitude)
+        {
+            // Un temblor pequeño no corta uno grande que ya está en marcha
+            if (shakeTimer > 0f && amplitude < shakeAmplitude) return;
+            shakeDuration = duration;
+            shakeAmplitude = amplitude;
+            shakeTimer = duration;
         }
 
         void LateUpdate()
@@ -66,10 +92,21 @@ namespace Waterpulse.Gameplay
         Vector3 ShakeOffset()
         {
             if (shakeTimer <= 0f) return Vector3.zero;
-            shakeTimer -= Time.deltaTime;
-            float fade = config.cameraShakeDuration > 0f ? Mathf.Clamp01(shakeTimer / config.cameraShakeDuration) : 0f;
-            Vector2 r = Random.insideUnitCircle * (config.cameraShakeAmplitude * fade);
+            shakeTimer -= Time.unscaledDeltaTime;
+            float fade = shakeDuration > 0f ? Mathf.Clamp01(shakeTimer / shakeDuration) : 0f;
+            Vector2 r = Random.insideUnitCircle * (shakeAmplitude * fade);
             return new Vector3(r.x, 0f, r.y);
+        }
+
+        // Grados que se cierra la cámara: entra de golpe (el primer 15 % del tiempo) y vuelve suave
+        float ZoomPunch()
+        {
+            if (zoomTimer <= 0f || config.goalZoomDuration <= 0f) return 0f;
+            zoomTimer -= Time.unscaledDeltaTime;
+            float t = 1f - Mathf.Clamp01(zoomTimer / config.goalZoomDuration);   // 0 al empezar, 1 al acabar
+            const float attack = 0.15f;
+            float amount = t < attack ? t / attack : 1f - Mathf.SmoothStep(0f, 1f, (t - attack) / (1f - attack));
+            return config.goalZoomPunch * amount;
         }
 
         // Coloca la cámara directamente sobre su objetivo (la usa el generador de escena)
@@ -118,7 +155,7 @@ namespace Waterpulse.Gameplay
 
         void Place(Vector3 point)
         {
-            cam.fieldOfView = config.cameraFieldOfView;
+            cam.fieldOfView = config.cameraFieldOfView - ZoomPunch();
             Quaternion rotation = Quaternion.Euler(config.cameraPitch, 0f, 0f);
             transform.SetPositionAndRotation(point - rotation * Vector3.forward * Distance(), rotation);
         }

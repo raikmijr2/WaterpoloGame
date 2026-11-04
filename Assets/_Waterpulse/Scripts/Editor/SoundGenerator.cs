@@ -46,6 +46,10 @@ namespace Waterpulse.EditorTools
             S("crowd_loop", CrowdLoop, c => c.crowdLoop, (c, a) => c.crowdLoop = a),
             S("crowd_cheer", Cheer, c => c.crowdCheer, (c, a) => c.crowdCheer = a),
             S("crowd_ooh", Ooh, c => c.crowdOoh, (c, a) => c.crowdOoh = a),
+            // Celebración del gol (grabaciones CC0 de OpenGameArt; si faltan, una ovación y salpicaduras provisionales)
+            S("goal_applause", Cheer, c => c.goalApplause, (c, a) => c.goalApplause = a),
+            S("goal_cannon", () => Splash(4, 0.45f, 1.3f, Loud, true), c => c.goalCannon, (c, a) => c.goalCannon = a),
+            S("goal_fireworks", () => Splash(3, 0.3f, 0.8f, Soft, false), c => c.goalFireworks, (c, a) => c.goalFireworks = a),
             S("splash_pass", () => Splash(3, 0.3f, 0.8f, Soft, false), c => c.passSplash, (c, a) => c.passSplash = a),
             S("splash_shot", () => Splash(4, 0.45f, 1.3f, Loud, true), c => c.shotSplash, (c, a) => c.shotSplash = a),
             S("catch", Catch, c => c.catchSlap, (c, a) => c.catchSlap = a),
@@ -120,6 +124,9 @@ namespace Waterpulse.EditorTools
             var config = LoadOrCreate<AudioConfigSO>(ConfigPath);
             foreach (var sound in Sounds)
                 if (sound.Get != null && sound.Get(config) == null) sound.Set(config, Clip(sound.File));
+
+            // Golpe del Mur de Ferro: el "clonc" metálico de los palos (AudioDirector lo baja de tono)
+            if (config.wallImpact == null) config.wallImpact = Clip("bounce");
 
             var abilities = new List<AudioConfigSO.AbilitySound>(config.abilitySounds ?? new AudioConfigSO.AbilitySound[0]);
             AssignAbility(abilities, xutTragol, XutTragolFile);

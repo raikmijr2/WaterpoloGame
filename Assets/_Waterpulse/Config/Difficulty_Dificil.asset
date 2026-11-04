@@ -20,3 +20,6 @@ MonoBehaviour:
   shotGreenChance: 0.7
   shotMissMinFill: 0.6
   showControlHints: 0
+  speculativeShotChance: 0.08
+  minPassesBeforeShot: 2
+  generatorVersion: 1

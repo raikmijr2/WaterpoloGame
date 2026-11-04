@@ -16,9 +16,11 @@ namespace Waterpulse.Config
 
         [Tooltip("Multiplicador: de la velocidad del tiro (PowerShot) o de la de nado (Boost)")]
         public float power = 2f;
-        [Tooltip("Boost: duración del acelerón (s). Wall: lo que dura levantado el muro (s)")]
+        [Tooltip("Boost: duración del acelerón (s). Wall: lo que dura el Mur de Ferro (s)")]
         public float duration = 1f;
         [Tooltip("PowerShot: distancia al portero a la que la parada llega a 0 (m). Pequeña = solo lo para si le llega al cuerpo")]
         public float goalkeeperReach = 0.6f;
+        [Tooltip("Versión de los valores que ha rellenado el generador (para añadir los nuevos sin pisar lo ajustado)")]
+        [HideInInspector] public int generatorVersion;
     }
 }
