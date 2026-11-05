@@ -20,12 +20,12 @@ namespace Waterpulse.UI
         [SerializeField] string withBall = "{J} PASSAR   {K} XUTAR   {L} SÚPER XUT   {Shift} DASH";
         [SerializeField] string charging = "{W/S} APUNTAR   {K} XUTAR";
         [SerializeField] string defending = "{J} ROBAR   {L} TORPEDE   {Shift} DASH   {Q} CANVIAR   {E} PORTER";
-        [SerializeField] string keeper = "{L} MUR D'AIGUA   {J} PASSAR   {E} TORNAR AL CAMP";
+        [SerializeField] string keeper = "{L} MUR DE FERRO   {J} PASSAR   {E} TORNAR AL CAMP";
         [Header("Amb ratolí (Opcions > Controls: Ratolí)")]
         [SerializeField] string withBallMouse = "{Clic dret} PASSAR   {Clic} XUTAR   {Doble clic} SÚPER XUT   {Shift} DASH";
         [SerializeField] string chargingMouse = "{W/S} APUNTAR   {Clic} XUTAR";
         [SerializeField] string defendingMouse = "{Clic dret} ROBAR   {Doble clic} TORPEDE   {Shift} DASH   {Q} CANVIAR   {E} PORTER";
-        [SerializeField] string keeperMouse = "{Doble clic} MUR D'AIGUA   {Clic dret} PASSAR   {E} TORNAR AL CAMP";
+        [SerializeField] string keeperMouse = "{Doble clic} MUR DE FERRO   {Clic dret} PASSAR   {E} TORNAR AL CAMP";
 
         PlayerController controlled;
         bool playing;
